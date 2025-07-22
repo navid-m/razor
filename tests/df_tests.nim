@@ -58,3 +58,12 @@ test "Boolean filtering on Series":
     let mask = df["x"] > 2
     let filtered = df["x"].mask(mask)
     check filtered.toSeq() == @[v 3, v 4]
+
+test "Sort DataFrame by a numeric column ascending and descending":
+    var df = newDataFrame()
+    df["name"] = newSeries(@["Bob", "Alice", "Charlie"])
+    df["score"] = newSeries(@[92.0, 85.5, 78.5])
+    let sortedAsc = df.sort("score")
+    check sortedAsc["name"].toSeq() == @[v "Charlie", v "Alice", v "Bob"]
+    let sortedDesc = df.sort("score", ascending = false)
+    check sortedDesc["name"].toSeq() == @[v "Bob", v "Alice", v "Charlie"]
