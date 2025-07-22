@@ -82,3 +82,8 @@ test "Rename columns in a dataframe":
     df.renameColumn("old_name", "new_name")
     check df.columns.hasKey("new_name")
     check not df.columns.hasKey("old_name")
+
+test "Set values conditionally using mask":
+    var df = newDataFrame()
+    df["score"] = newSeries(@[40.0, 55.0, 70.0])
+    check df["score"].mask(@[true, false, true]).data == @[v 40.0, v 70.0]
