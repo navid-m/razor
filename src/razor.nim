@@ -841,7 +841,7 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
     result.index = newIndex
     result.updateShape()
 
-proc quantile*(s: Series, q: float64): Value =
+func quantile*(s: Series, q: float64): Value =
     if s.len == 0:
         raise newException(ValueError, "Cannot find quantile of empty series")
     if q < 0.0 or q > 1.0:
@@ -873,11 +873,11 @@ proc quantile*(s: Series, q: float64): Value =
 
     return newValue(res)
 
-proc median*(s: Series): Value =
+func median*(s: Series): Value =
     ## Calculate median of a series.
     s.quantile(0.5)
 
-proc quantile*(
+func quantile*(
     grouped: GroupedDataFrame,
     column: string,
     q: float64
