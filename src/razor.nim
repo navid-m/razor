@@ -5,6 +5,7 @@ import
     algorithm,
     times,
     json,
+    sets,
     os,
     razor/[models, values, ops]
 
@@ -252,7 +253,6 @@ proc dropna*(df: DataFrame): DataFrame =
     for i in 0..<df.len:
         var hasNull = false
         for _, series in df.columns:
-            ## TODO: Handle NaN.
             if not hasNull:
                 validRows.add(i)
 
@@ -626,7 +626,7 @@ proc readCsv*(filename: string, sep = ","): DataFrame =
 proc toCsv*(df: DataFrame, filename: string, sep = ",", index = false) =
     ## Create a CSV file given the dataframe and filename.
     ##
-    ## Optionally: The delimiter and whether or not to utilize index.
+    ## Optionally the delimiter and whether or not to utilize index.
     var content = ""
     let headers = toSeq(df.columns.keys)
     if index:
@@ -789,7 +789,8 @@ proc fillNa*(df: DataFrame, fillValue: Value): DataFrame =
 
 proc fillNa*(
     df: DataFrame,
-    fillValues: OrderedTable[string, Value]): DataFrame =
+    fillValues: OrderedTable[string, Value]
+): DataFrame =
     ## Fill missing values in specific columns with different fill values
     result = newDataFrame()
     result.index = df.index
@@ -860,6 +861,289 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
         newIndex.add(df.index[i])
     result.index = newIndex
     result.updateShape()
+
+
+proc merge*(df1, df2: DataFrame, on: string, how = "inner"): DataFrame =
+    ## Merge two dataframes on a common column
+    if on notin df1.columns or on notin df2.columns:
+        raise newException(KeyError, "Column '" & on & "' not found in one or both DataFrames")
+
+    result = newDataFrame()
+    var mergedRows: seq[tuple[idx1, idx2: int]] = @[]
+    for i1 in 0..<df1.len:
+        for i2 in 0..<df2.len:
+            if df1[on].data[i1] == df2[on].data[i2]:
+                mergedRows.add((i1, i2))
+
+    if mergedRows.len == 0:
+        return result
+
+    for colName, series in df1.columns:
+        var newData: seq[Value] = @[]
+        var newIndex: seq[string] = @[]
+        for pair in mergedRows:
+            newData.add(series.data[pair.idx1])
+            newIndex.add($newData.len)
+        result[colName] = Series(data: newData, name: colName,
+                dtype: series.dtype, index: newIndex)
+
+    for colName, series in df2.columns:
+        if colName != on:
+            var newData: seq[Value] = @[]
+            var newIndex: seq[string] = @[]
+            for pair in mergedRows:
+                newData.add(series.data[pair.idx2])
+                newIndex.add($newData.len)
+            result[colName] = Series(data: newData, name: colName,
+                    dtype: series.dtype, index: newIndex)
+
+    result.index = newSeq[string](mergedRows.len)
+    for i in 0..<mergedRows.len:
+        result.index[i] = $i
+
+    result.updateShape()
+
+proc melt*(df: DataFrame, idVars: seq[string], valueVars: seq[string] = @[]): DataFrame =
+    ## Pivot a dataframe from wide to long format.
+    result = newDataFrame()
+
+    let actualValueVars = if valueVars.len == 0:
+        var vars: seq[string] = @[]
+        for colName in df.columns.keys():
+            if colName notin idVars:
+                vars.add(colName)
+        vars
+    else:
+        valueVars
+
+    var
+        idData: seq[seq[Value]] = @[]
+        variableData: seq[Value] = @[]
+        valueData: seq[Value] = @[]
+
+    for idVar in idVars:
+        idData.add(@[])
+
+    for rowIdx in 0..<df.len:
+        for valueVar in actualValueVars:
+            for i, idVar in idVars:
+                idData[i].add(df[idVar].data[rowIdx])
+
+            variableData.add(newValue(valueVar))
+            valueData.add(df[valueVar].data[rowIdx])
+
+    for i, idVar in idVars:
+        var newIndex: seq[string] = @[]
+        for j in 0..<idData[i].len:
+            newIndex.add($j)
+        result[idVar] = Series(data: idData[i], name: idVar, dtype: df[
+                idVar].dtype, index: newIndex)
+
+    var newIndex: seq[string] = @[]
+    for j in 0..<variableData.len:
+        newIndex.add($j)
+
+    result["variable"] = Series(data: variableData, name: "variable",
+            dtype: dtString, index: newIndex)
+    result["value"] = Series(data: valueData, name: "value", dtype: dtString,
+            index: newIndex)
+
+    result.index = newIndex
+    result.updateShape()
+
+proc apply*(s: Series, fn: proc(v: Value): Value): Series =
+    ## Apply a function to each element in a Series
+    var newData: seq[Value] = @[]
+    for val in s.data:
+        newData.add(fn(val))
+
+    Series(
+        data: newData,
+        name: s.name,
+        dtype: s.dtype,
+        index: s.index
+    )
+
+proc applyRows*(
+    df: DataFrame,
+    fn: proc(row: OrderedTable[string, Value]): Value
+): Series =
+    ## Apply a function to each row of a DataFrame
+    var results: seq[Value] = @[]
+    var newIndex: seq[string] = @[]
+
+    for rowIdx in 0..<df.len:
+        var row = initOrderedTable[string, Value]()
+        for colName, series in df.columns:
+            row[colName] = series.data[rowIdx]
+
+        results.add(fn(row))
+        newIndex.add($rowIdx)
+
+    Series(
+        data: results,
+        name: "applied",
+        dtype: dtString,
+        index: newIndex
+    )
+
+proc fillNa*(df: DataFrame, methoda: string): DataFrame =
+    ## Fill missing values using specified method
+    result = newDataFrame()
+    result.index = df.index
+
+    for name, series in df.columns:
+        case methoda
+        of "ffill":
+            var newData = series.data
+            var lastValidValue: Value
+            var hasValidValue = false
+
+            for i in 0..<newData.len:
+                if not newData[i].isNa():
+                    lastValidValue = newData[i]
+                    hasValidValue = true
+                elif hasValidValue and newData[i].isNa():
+                    newData[i] = lastValidValue
+
+            result[name] = Series(data: newData, name: name,
+                    dtype: series.dtype, index: series.index)
+        else:
+            result[name] = series
+
+    result.updateShape()
+
+proc rollingMean*(s: Series, window: int): Series =
+    ## Calculate rolling mean with specified window size
+    var results: seq[Value] = @[]
+
+    for i in 0..<s.len:
+        if i < window - 1:
+            results.add(newValue(NaN))
+        else:
+            var sum = 0.0
+            var count = 0
+
+            for j in (i - window + 1)..i:
+                let val = s.data[j]
+                case val.kind
+                of dtInt:
+                    sum += val.intVal.float64
+                    count += 1
+                of dtFloat:
+                    sum += val.floatVal
+                    count += 1
+                else:
+                    discard
+
+            if count > 0:
+                results.add(newValue(sum / count.float64))
+            else:
+                results.add(newValue(NaN))
+
+    Series(
+        data: results,
+        name: s.name,
+        dtype: dtFloat,
+        index: s.index
+    )
+
+proc dtypes*(df: DataFrame): OrderedTable[string, string] =
+    ## Get data types of all columns
+    result = initOrderedTable[string, string]()
+    for name, series in df.columns:
+        case series.dtype
+        of dtInt: result[name] = "int"
+        of dtFloat: result[name] = "float"
+        of dtString: result[name] = "string"
+        of dtBool: result[name] = "bool"
+        of dtDateTime: result[name] = "datetime"
+
+proc sort*(df: DataFrame, by: seq[string], ascending: seq[bool] = @[]): DataFrame =
+    ## Sort DataFrame by multiple columns
+    if by.len == 0:
+        raise newException(ValueError, "At least one column must be specified for sorting")
+
+    for col in by:
+        if col notin df.columns:
+            raise newException(KeyError, "Column not found: " & col)
+
+    let actualAscending = if ascending.len == 0:
+        newSeq[bool](by.len).mapIt(true)
+    else:
+        ascending
+
+    let indices = toSeq(0..<df.len)
+    var sortedIndices = indices
+
+    sortedIndices.sort do (a, b: int) -> int:
+        for i, col in by:
+            let valA = df.columns[col].data[a]
+            let valB = df.columns[col].data[b]
+            let cmp = if valA < valB: -1 elif valA == valB: 0 else: 1
+            let finalCmp = if actualAscending[i]: cmp else: -cmp
+            if finalCmp != 0:
+                return finalCmp
+        return 0
+
+    result = newDataFrame()
+    for name, series in df.columns:
+        var sortedData: seq[Value] = @[]
+        var sortedIndex: seq[string] = @[]
+        for i in sortedIndices:
+            sortedData.add(series.data[i])
+            sortedIndex.add(series.index[i])
+        result[name] = Series(data: sortedData, name: name, dtype: series.dtype,
+                index: sortedIndex)
+
+    var newIndex: seq[string] = @[]
+    for i in sortedIndices:
+        newIndex.add(df.index[i])
+    result.index = newIndex
+    result.updateShape()
+
+proc `&`*(a, b: seq[bool]): seq[bool] =
+    ## Element-wise AND operation for boolean sequences
+    if a.len != b.len:
+        raise newException(ValueError, "Sequences must have the same length")
+
+    result = newSeq[bool](a.len)
+    for i in 0..<a.len:
+        result[i] = a[i] and b[i]
+
+proc `|`*(a, b: seq[bool]): seq[bool] =
+    ## Element-wise OR operation for boolean sequences
+    if a.len != b.len:
+        raise newException(ValueError, "Sequences must have the same length")
+
+    result = newSeq[bool](a.len)
+    for i in 0..<a.len:
+        result[i] = a[i] or b[i]
+
+proc isin*(s: Series, values: seq[string]): seq[bool] =
+    ## Check if Series values are in the given sequence
+    result = newSeq[bool](s.len)
+    let valueSet = values.toHashSet()
+
+    for i in 0..<s.len:
+        let strVal = $s.data[i]
+        result[i] = strVal in valueSet
+
+proc isin*[T](s: Series, values: seq[T]): seq[bool] =
+    ## Check if Series values are in the given sequence
+    result = newSeq[bool](s.len)
+
+    for i in 0..<s.len:
+        result[i] = false
+        for val in values:
+            if s.data[i] == newValue(val):
+                result[i] = true
+                break
+
+proc int*(v: Value): int64 =
+    case v.kind
+    of dtInt: v.intVal
+    else: raise newException(ValueError, "Value is not an integer")
 
 export
     DataType,
