@@ -253,36 +253,6 @@ proc concat*(dfl, dfr: DataFrame): DataFrame =
     )
     return newDf
 
-proc dropna*(df: DataFrame): DataFrame =
-    result = newDataFrame()
-    var validRows: seq[int] = @[]
-
-    for i in 0..<df.len:
-        var hasNull = false
-        for _, series in df.columns:
-            if not hasNull:
-                validRows.add(i)
-
-    for name, series in df.columns:
-        var cleanData: seq[Value] = @[]
-        var cleanIndex: seq[string] = @[]
-
-        for i in validRows:
-            cleanData.add(series.data[i])
-            cleanIndex.add(series.index[i])
-
-        result[name] = Series(
-            data: cleanData,
-            name: name,
-            dtype: series.dtype,
-            index: cleanIndex
-        )
-
-    var newIndex: seq[string] = @[]
-    for i in validRows:
-        newIndex.add(df.index[i])
-    result.index = newIndex
-    result.updateShape()
 
 proc sort*(df: DataFrame, by: string, ascending = true): DataFrame =
     if by notin df.columns:
@@ -871,6 +841,32 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
     result.index = newIndex
     result.updateShape()
 
+proc dropColumn*(df: DataFrame, columnName: string): DataFrame =
+    if columnName notin df.columns:
+        raise newException(KeyError, "Column not found: " & columnName)
+    result = newDataFrame()
+    result.index = df.index
+    for name, series in df.columns:
+        if name != columnName:
+            result[name] = series
+    result.updateShape()
+
+proc replace*(s: Series, mask: seq[bool], replaceValue: Value): Series =
+    if s.len != mask.len:
+        raise newException(ValueError, "Series and mask must have the same length")
+
+    result = Series(
+        name: s.name,
+        dtype: s.dtype,
+        index: s.index,
+        data: newSeq[Value](s.len)
+    )
+
+    for i in 0..<s.len:
+        if mask[i]:
+            result.data[i] = replaceValue
+        else:
+            result.data[i] = s.data[i]
 
 proc merge*(df1, df2: DataFrame, on: string, how = "inner"): DataFrame =
     ## Merge two dataframes on a common column
