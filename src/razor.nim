@@ -1054,7 +1054,7 @@ export
     readCsv,
     toCsv,
     toJson,
-    toParquet,
     fillNa,
     v,
-    dropNa
+    dropNa,
+    toParquet
