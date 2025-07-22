@@ -841,6 +841,61 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
     result.index = newIndex
     result.updateShape()
 
+proc quantile*(s: Series, q: float64): Value =
+    if s.len == 0:
+        raise newException(ValueError, "Cannot find quantile of empty series")
+    if q < 0.0 or q > 1.0:
+        raise newException(ValueError, "Quantile must be between 0.0 and 1.0")
+
+    var numericValues: seq[float64] = @[]
+    for val in s.data:
+        case val.kind
+        of dtInt: numericValues.add(val.intVal.float64)
+        of dtFloat: numericValues.add(val.floatVal)
+        else: discard
+
+    if numericValues.len == 0:
+        raise newException(ValueError, "No numeric values found for quantile calculation")
+
+    numericValues.sort()
+
+    if q == 0.0:
+        return newValue(numericValues[0])
+    if q == 1.0:
+        return newValue(numericValues[^1])
+
+    let
+        index = q * (numericValues.len - 1).float64
+        lower = int(index)
+        upper = min(lower + 1, numericValues.len - 1)
+        weight = index - lower.float64
+        res = numericValues[lower] * (1.0 - weight) + numericValues[upper] * weight
+
+    return newValue(res)
+
+proc median*(s: Series): Value =
+    ## Calculate median of a series.
+    s.quantile(0.5)
+
+proc quantile*(
+    grouped: GroupedDataFrame,
+    column: string,
+    q: float64
+): OrderedTable[string, Value] =
+    ## Compute quantile of a column for each group.
+    result = initOrderedTable[string, Value]()
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+        let series = groupDf.columns[column]
+        if series.dtype notin {dtInt, dtFloat}:
+            raise newException(ValueError, "Quantile can only be computed for numeric columns")
+        result[groupKey] = series.quantile(q)
+
+proc median*(grouped: GroupedDataFrame, column: string): OrderedTable[string, Value] =
+    ## Compute median of a column for each group.
+    grouped.quantile(column, 0.5)
+
 proc dropColumn*(df: DataFrame, columnName: string): DataFrame =
     if columnName notin df.columns:
         raise newException(KeyError, "Column not found: " & columnName)

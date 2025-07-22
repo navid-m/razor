@@ -94,3 +94,8 @@ test "Mathematical operations on columns":
     df["b"] = newSeries(@[1, 2, 3])
     check (df["a"] - df["b"]).toSeq() == @[v 9, v 18, v 27]
     check (df["a"] / df["b"]).toSeq() == @[v 10.0, v 10.0, v 10.0]
+
+test "Quantile and median":
+    var s = newSeries(@[1, 2, 3, 4, 5])
+    check s.quantile(0.5) == v 3.0
+    check s.median() == v 3.0
