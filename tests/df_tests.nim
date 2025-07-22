@@ -1,6 +1,7 @@
 import
     unittest,
     razor,
+    tables,
     times
 
 test "Create a new DF, retrieve head, describe, create and read a CSV":
@@ -42,3 +43,11 @@ test "Generate a correct date range":
     check dr.len == 5
     check dr[0] == v start
     check dr[4] == v start + 4.days
+
+test "Group by a categorical column, then compute mean":
+    var df = newDataFrame()
+    df["dept"] = newSeries(@["HR", "IT", "HR", "IT"])
+    df["salary"] = newSeries(@[50_000'i64, 60_000, 55_000, 65_000])
+    let result = df.groupBy("dept").mean("salary")
+    check result["HR"] == 52_500.0
+    check result["IT"] == 62_500.0

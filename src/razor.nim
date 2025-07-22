@@ -34,6 +34,10 @@ type
         index*: seq[string]
         shape*: tuple[rows, cols: int]
 
+    GroupedDataFrame* = ref object
+        groups*: OrderedTable[string, DataFrame]
+        groupByColumn*: string
+
 proc newValue*(val: int64): Value = Value(kind: dtInt, intVal: val)
 proc newValue*(val: float64): Value = Value(kind: dtFloat, floatVal: val)
 proc newValue*(val: string): Value = Value(kind: dtString, stringVal: val)
@@ -507,7 +511,7 @@ proc sort*(df: DataFrame, by: string, ascending = true): DataFrame =
     result.index = newIndex
     result.updateShape()
 
-proc groupBy*(df: DataFrame, by: string): OrderedTable[string, DataFrame] =
+proc groupBy*(df: DataFrame, by: string): GroupedDataFrame =
     if by notin df.columns:
         raise newException(KeyError, "Column not found: " & by)
 
@@ -520,7 +524,7 @@ proc groupBy*(df: DataFrame, by: string): OrderedTable[string, DataFrame] =
             groups[key] = @[]
         groups[key].add(i)
 
-    result = initOrderedTable[string, DataFrame]()
+    var groupedDfs = initOrderedTable[string, DataFrame]()
     for key, indices in groups:
         var groupDf = newDataFrame()
         for name, series in df.columns:
@@ -537,7 +541,107 @@ proc groupBy*(df: DataFrame, by: string): OrderedTable[string, DataFrame] =
             newIndex.add(df.index[i])
         groupDf.index = newIndex
         groupDf.updateShape()
-        result[key] = groupDf
+        groupedDfs[key] = groupDf
+
+    GroupedDataFrame(groups: groupedDfs, groupByColumn: by)
+
+proc mean*(grouped: GroupedDataFrame, column: string): OrderedTable[string, float64] =
+    ## Compute mean of a column for each group
+    result = initOrderedTable[string, float64]()
+
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+
+        let series = groupDf.columns[column]
+        if series.dtype notin {dtInt, dtFloat}:
+            raise newException(ValueError, "Mean can only be computed for numeric columns")
+
+        result[groupKey] = series.mean()
+
+proc sum*(grouped: GroupedDataFrame, column: string): OrderedTable[string, Value] =
+    ## Compute sum of a column for each group
+    result = initOrderedTable[string, Value]()
+
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+
+        let series = groupDf.columns[column]
+        result[groupKey] = series.sum()
+
+proc count*(grouped: GroupedDataFrame): OrderedTable[string, int] =
+    ## Count number of rows in each group
+    result = initOrderedTable[string, int]()
+    for groupKey, groupDf in grouped.groups:
+        result[groupKey] = groupDf.len
+
+proc min*(grouped: GroupedDataFrame, column: string): OrderedTable[string, Value] =
+    ## Compute minimum of a column for each group
+    result = initOrderedTable[string, Value]()
+
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+
+        let series = groupDf.columns[column]
+        result[groupKey] = series.min()
+
+proc max*(grouped: GroupedDataFrame, column: string): OrderedTable[string, Value] =
+    ## Compute maximum of a column for each group
+    result = initOrderedTable[string, Value]()
+
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+
+        let series = groupDf.columns[column]
+        result[groupKey] = series.max()
+
+proc agg*(
+    grouped: GroupedDataFrame,
+    column: string,
+    operations: seq[string]
+): DataFrame =
+    ## Apply multiple aggregation operations to a column
+    result = newDataFrame()
+
+    let groupKeys = toSeq(grouped.groups.keys)
+    result.index = groupKeys
+
+    for op in operations:
+        var values: seq[Value] = @[]
+
+        case op.toLowerAscii()
+        of "mean":
+            let means = grouped.mean(column)
+            for key in groupKeys:
+                values.add(newValue(means[key]))
+        of "sum":
+            let sums = grouped.sum(column)
+            for key in groupKeys:
+                values.add(sums[key])
+        of "count":
+            let counts = grouped.count()
+            for key in groupKeys:
+                values.add(newValue(counts[key].int64))
+        of "min":
+            let mins = grouped.min(column)
+            for key in groupKeys:
+                values.add(mins[key])
+        of "max":
+            let maxs = grouped.max(column)
+            for key in groupKeys:
+                values.add(maxs[key])
+        else:
+            raise newException(
+                ValueError,
+                "Unsupported aggregation operation: " & op
+            )
+
+        result[column & "_" & op] = newSeriesWithDataType(values, column & "_" & op)
+
+    result.updateShape()
 
 proc toDateTime*(s: string, format = "yyyy-MM-dd"): DateTime =
     parse(s, format)
