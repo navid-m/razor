@@ -17,3 +17,10 @@ test "Can create a new DF, retrieve head, describe, create and read a CSV":
 
     discard readCsv("data.csv")
     discard dateRange(now(), 10, "D")
+
+test "Can index and slice DataFrame rows and columns":
+    var df = newDataFrame()
+    df["city"] = newSeries(@["NY", "SF", "LA", "CHI"])
+    df["temp"] = newSeries(@[22.0, 19.5, 25.1, 17.8])
+
+    assert(df["city"][1] == newValue("SF"), "Dataframe lookup")

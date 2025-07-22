@@ -455,6 +455,9 @@ proc readCsv*(filename: string, sep = ","): DataFrame =
     result.updateShape()
 
 proc toCsv*(df: DataFrame, filename: string, sep = ",", index = false) =
+    ## Create a CSV file given the dataframe and filename.
+    ##
+    ## Optionally: The delimiter and whether or not to utilize index.
     var content = ""
     let headers = toSeq(df.columns.keys)
     if index:
@@ -517,6 +520,76 @@ proc `$`*(df: DataFrame): string =
 
     if df.len > displayRows:
         result.add("... (" & $(df.len - displayRows) & " more rows)\n")
+
+
+proc slice*(
+    df: DataFrame,
+    startRow: int = 0,
+    endRow: int = -1,
+    startCol: int = 0,
+    endCol: int = -1
+): DataFrame =
+    ## Slice the dataframe by rows and columns.
+    ##
+    ## Parameters:
+    ##  - startRow: Starting row index (inclusive, default 0)
+    ##  - endRow: Ending row index (exclusive, -1 means all rows)
+    ##  - startCol: Starting column index (inclusive, default 0)
+    ##  - endCol: Ending column index (exclusive, -1 means all columns)
+    result = DataFrame()
+    result.columns = initOrderedTable[string, Series]()
+
+    let actualEndRow = if endRow == -1: df.shape.rows else: min(endRow, df.shape.rows)
+    let actualEndCol = if endCol == -1: df.shape.cols else: min(endCol, df.shape.cols)
+
+    if startRow < 0 or startRow >= df.shape.rows:
+        raise newException(IndexDefect, "Start row index out of bounds")
+    if actualEndRow < startRow:
+        raise newException(IndexDefect, "End row must be greater than start row")
+    if startCol < 0 or startCol >= df.shape.cols:
+        raise newException(IndexDefect, "Start column index out of bounds")
+    if actualEndCol < startCol:
+        raise newException(IndexDefect, "End column must be greater than start column")
+
+    let colNames = toSeq(df.columns.keys())
+    let selectedCols = colNames[startCol..<actualEndCol]
+
+    result.index = df.index[startRow..<actualEndRow]
+
+    for colName in selectedCols:
+        let originalSeries = df.columns[colName]
+        let newSeries = Series()
+        newSeries.name = originalSeries.name
+        newSeries.dtype = originalSeries.dtype
+        newSeries.data = originalSeries.data[startRow..<actualEndRow]
+        newSeries.index = result.index
+        result.columns[colName] = newSeries
+
+    result.shape = (actualEndRow - startRow, actualEndCol - startCol)
+
+proc slice*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
+    ## Slice the DataFrame by row range using Nim's Slice syntax.
+    let startRow = rowSlice.a
+    let endRow = rowSlice.b + 1
+    result = df.slice(startRow, endRow, 0, -1)
+
+proc slice*(df: DataFrame, colNames: seq[string]): DataFrame =
+    ## Slices the DataFrame by column names.
+    ## Returns a new DataFrame with only the specified columns.
+    result = DataFrame()
+    result.columns = initOrderedTable[string, Series]()
+    result.index = df.index
+
+    for colName in colNames:
+        if colName notin df.columns:
+            raise newException(KeyError, "Column '" & colName & "' not found in DataFrame")
+        result.columns[colName] = df.columns[colName]
+
+    result.shape = (df.shape.rows, colNames.len)
+
+proc toSeq*(series: Series): seq[Value] =
+    ## Converts a Series to a sequence of values.
+    result = series.data
 
 export
     DataType,
