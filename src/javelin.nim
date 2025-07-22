@@ -1,4 +1,12 @@
-import std/[tables, sequtils, strutils, algorithm, times, json, os]
+import std/[
+    tables,
+    sequtils,
+    strutils,
+    algorithm,
+    times,
+    json,
+    os
+]
 
 type
     DataType* = enum
