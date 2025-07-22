@@ -737,9 +737,7 @@ proc slice*(
 
 proc slice*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
     ## Slice the DataFrame by row range
-    let startRow = rowSlice.a
-    let endRow = rowSlice.b + 1
-    result = df.slice(startRow, endRow, 0, -1)
+    result = df.slice(rowSlice.a, rowSlice.b + 1, 0, -1)
 
 proc slice*(df: DataFrame, colNames: seq[string]): DataFrame =
     ## Slice the DataFrame by column names.
