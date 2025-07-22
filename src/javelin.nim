@@ -503,7 +503,6 @@ proc `$`*(s: Series): string =
 
 proc `$`*(df: DataFrame): string =
     result = "DataFrame (" & $df.shape.rows & "x" & $df.shape.cols & "):\n"
-
     let headers = toSeq(df.columns.keys)
     let displayRows = min(10, df.len)
     result.add("     ")
@@ -519,8 +518,30 @@ proc `$`*(df: DataFrame): string =
     if df.len > displayRows:
         result.add("... (" & $(df.len - displayRows) & " more rows)\n")
 
-export DataType, Value, Series, DataFrame
-export newSeriesWithDataType, newSeries, newDataFrame
-export head, tail, sum, mean, max, min, sort, unique, valueCounts
-export describe, info, dropna, groupBy, dateRange, resample
-export readCsv, toCsv, toJson, toParquet
+export
+    DataType,
+    Value,
+    Series,
+    DataFrame,
+    newSeriesWithDataType,
+    newSeries,
+    newDataFrame,
+    head,
+    tail,
+    sum,
+    mean,
+    max,
+    min,
+    sort,
+    unique,
+    valueCounts,
+    describe,
+    info,
+    dropna,
+    groupBy,
+    dateRange,
+    resample,
+    readCsv,
+    toCsv,
+    toJson,
+    toParquet
