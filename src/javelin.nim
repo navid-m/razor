@@ -81,28 +81,35 @@ proc `-`*(a, b: Value): Value =
                 " from " & $a.kind)
     else: raise newException(ValueError, "Subtraction not supported for " & $a.kind)
 
-# Series operations
-proc newSeriesWithDataType*(data: seq[Value], name = "",
-        dtype: DataType = dtString): Series =
+proc newSeriesWithDataType*(
+    data: seq[Value],
+    name = "",
+    dtype: DataType = dtString
+): Series =
+    ## Create a new series given a sequence of data, the name, and
+    ## the datatype itself.
     var index = newSeq[string](data.len)
     for i in 0..<data.len:
         index[i] = $i
     Series(data: data, name: name, dtype: dtype, index: index)
 
-proc newSeries*(data: seq[int64], name = ""): Series =
-    newSeriesWithDataType(data.mapIt(newValue(it)), name, dtInt)
+proc newSeries*(data: seq[int64], name = ""): Series = newSeriesWithDataType(
+        data.mapIt(newValue(it)), name, dtInt
+    )
 
-proc newSeries*(data: seq[float64], name = ""): Series =
-    newSeriesWithDataType(data.mapIt(newValue(it)), name, dtFloat)
+proc newSeries*(data: seq[float64], name = ""): Series = newSeriesWithDataType(
+        data.mapIt(newValue(it)), name, dtFloat
+    )
 
-proc newSeries*(data: seq[string], name = ""): Series =
-    newSeriesWithDataType(data.mapIt(newValue(it)), name, dtString)
+proc newSeries*(data: seq[string], name = ""): Series = newSeriesWithDataType(
+        data.mapIt(newValue(it)), name, dtString
+    )
 
-proc newSeries*(data: seq[bool], name = ""): Series =
-    newSeriesWithDataType(data.mapIt(newValue(it)), name, dtBool)
+proc newSeries*(data: seq[bool], name = ""): Series = newSeriesWithDataType(
+        data.mapIt(newValue(it)), name, dtBool
+    )
 
 proc len*(s: Series): int = s.data.len
-
 proc `[]`*(s: Series, idx: int): Value = s.data[idx]
 proc `[]`*(s: Series, idx: string): Value =
     let i = s.index.find(idx)
@@ -178,7 +185,6 @@ proc unique*(s: Series): Series =
 
     Series(data: uniqueData, name: s.name, dtype: s.dtype, index: uniqueIndex)
 
-## Some forward declarations.
 proc newDataFrame*(): DataFrame
 proc updateShape*(df: DataFrame)
 
@@ -370,7 +376,6 @@ proc groupBy*(df: DataFrame, by: string): OrderedTable[string, DataFrame] =
         groupDf.updateShape()
         result[key] = groupDf
 
-# Time Series support
 proc toDateTime*(s: string, format = "yyyy-MM-dd"): DateTime =
     parse(s, format)
 
