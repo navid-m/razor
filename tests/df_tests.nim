@@ -3,7 +3,7 @@ import
     javelin,
     times
 
-test "Can do basic things":
+test "Can create a new DF, retrieve head, describe, create and read a CSV":
     var df = newDataFrame()
     df["name"] = newSeries(@["Alice", "Bob", "Charlie"])
     df["age"] = newSeries(@[25'i64, 30'i64, 35'i64])
