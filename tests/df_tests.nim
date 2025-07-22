@@ -87,3 +87,10 @@ test "Set values conditionally using mask":
     var df = newDataFrame()
     df["score"] = newSeries(@[40.0, 55.0, 70.0])
     check df["score"].mask(@[true, false, true]).data == @[v 40.0, v 70.0]
+
+test "Mathematical operations on columns":
+    var df = newDataFrame()
+    df["a"] = newSeries(@[10, 20, 30])
+    df["b"] = newSeries(@[1, 2, 3])
+    check (df["a"] - df["b"]).toSeq() == @[v 9, v 18, v 27]
+    check (df["a"] / df["b"]).toSeq() == @[v 10.0, v 10.0, v 10.0]
