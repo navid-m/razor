@@ -407,6 +407,36 @@ proc info*(df: DataFrame): string =
     for name, series in df.columns:
         result.add("  " & name & ": " & $series.dtype & " (" & $series.len & " values)\n")
 
+proc concat*(dfl, dfr: DataFrame): DataFrame =
+    ## Concatenate two dataframes vertically.
+    ##
+    ## Ensure both dataframes have the same columns and dtypes.
+    for colName, series1 in dfl.columns:
+        if not dfr.columns.hasKey(colName):
+            raise newException(ValueError, "Column '" & colName & "' not found in second DataFrame.")
+        let series2 = dfr.columns[colName]
+        if series1.dtype != series2.dtype:
+            raise newException(ValueError, "Column '" & colName & "' has mismatched dtypes.")
+
+    var newDf = DataFrame()
+    newDf.columns = initOrderedTable[string, Series]()
+    newDf.index = dfl.index & dfr.index
+
+    for colName, series1 in dfl.columns:
+        let series2 = dfr.columns[colName]
+        var newSeries = Series(
+            name: colName,
+            dtype: series1.dtype,
+            data: series1.data & series2.data,
+            index: dfl.index & dfr.index
+        )
+        newDf.columns[colName] = newSeries
+    newDf.shape = (
+        dfl.shape.rows + dfr.shape.rows,
+        if dfl.shape.cols > 0: dfl.shape.cols else: dfr.shape.cols
+    )
+    return newDf
+
 proc dropna*(df: DataFrame): DataFrame =
     result = newDataFrame()
     var validRows: seq[int] = @[]
@@ -1049,6 +1079,7 @@ export
     mask,
     dropna,
     groupBy,
+    concat,
     dateRange,
     resample,
     readCsv,

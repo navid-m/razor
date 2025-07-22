@@ -67,3 +67,11 @@ test "Sort DataFrame by a numeric column ascending and descending":
     check sortedAsc["name"].toSeq() == @[v "Charlie", v "Alice", v "Bob"]
     let sortedDesc = df.sort("score", ascending = false)
     check sortedDesc["name"].toSeq() == @[v "Bob", v "Alice", v "Charlie"]
+
+test "Concatenate two dataframes vertically":
+    var df1 = newDataFrame()
+    df1["id"] = newSeries(@[1, 2])
+    var df2 = newDataFrame()
+    df2["id"] = newSeries(@[3, 4])
+    let combined = concat(df1, df2)
+    check combined["id"].toSeq() == @[v 1, v 2, v 3, v 4]
