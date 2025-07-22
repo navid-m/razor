@@ -736,7 +736,7 @@ proc slice*(
     result.shape = (actualEndRow - startRow, actualEndCol - startCol)
 
 proc slice*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
-    ## Slice the DataFrame by row range using Nim's Slice syntax.
+    ## Slice the DataFrame by row range
     let startRow = rowSlice.a
     let endRow = rowSlice.b + 1
     result = df.slice(startRow, endRow, 0, -1)
