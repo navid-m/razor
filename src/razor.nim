@@ -947,7 +947,7 @@ proc slice*(df: DataFrame, rowSlice: Slice[int]): DataFrame =
     result = df.slice(startRow, endRow, 0, -1)
 
 proc slice*(df: DataFrame, colNames: seq[string]): DataFrame =
-    ## Slices the DataFrame by column names.
+    ## Slice the DataFrame by column names.
     ## Returns a new DataFrame with only the specified columns.
     result = DataFrame()
     result.columns = initOrderedTable[string, Series]()
