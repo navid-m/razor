@@ -29,10 +29,8 @@ test "Handle missing values with fillna and dropna":
     var df = newDataFrame()
     df["value"] = newSeries(@[1.0, NaN, 3.0, NaN, 5.0])
 
-    let filled = df["value"].fillNa(newValue(0.0))
-    check filled.toSeq() == @[
-        newValue(1.0), newValue(0.0), newValue(3.0),
-            newValue(0.0), newValue(5.0)]
+    let filled = df["value"].fillNa(v 0.0)
+    check filled.toSeq() == @[v 1.0, v 0.0, v 3.0, v 0.0, v 5.0]
 
     let dropped = df["value"].dropNa()
-    check dropped.toSeq() == @[newValue(1.0), newValue(3.0), newValue(5.0)]
+    check dropped.toSeq() == @[v 1.0, v 3.0, v 5.0]
