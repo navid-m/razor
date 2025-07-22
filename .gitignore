@@ -6,3 +6,4 @@ nimclipboard
 *.pdb
 .DS_Store
 *.dmp
+temp.csv
