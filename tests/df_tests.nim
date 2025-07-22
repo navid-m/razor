@@ -28,9 +28,15 @@ test "Index and slice DataFrame rows and columns":
 test "Handle missing values with fillna and dropna":
     var df = newDataFrame()
     df["value"] = newSeries(@[1.0, NaN, 3.0, NaN, 5.0])
-
     let filled = df["value"].fillNa(v 0.0)
     check filled.toSeq() == @[v 1.0, v 0.0, v 3.0, v 0.0, v 5.0]
-
     let dropped = df["value"].dropNa()
     check dropped.toSeq() == @[v 1.0, v 3.0, v 5.0]
+
+test "Perform arithmetic operations on Series":
+    var df = newDataFrame()
+    df["a"] = newSeries(@[1'i64, 2, 3])
+    df["b"] = newSeries(@[10'i64, 20, 30])
+
+    let c = df["a"] + df["b"]
+    check c.toSeq() == @[11'i64, 22, 33]
