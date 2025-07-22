@@ -20,8 +20,10 @@ test "Pivot a dataframe (wide to long)":
     df["id"] = newSeries(@[1, 2])
     df["math"] = newSeries(@[90, 85])
     df["science"] = newSeries(@[80, 95])
-    discard melt(df, idVars = @["id"], valueVars = @["math", "science"])
-    # check melted.columns.keys().toSeq() == @[v "id", v "variable", v "value"]
+    let melted = melt(df, idVars = @["id"], valueVars = @["math", "science"])
+    check melted["id"].toSeq() == @[v 1, v 1, v 2, v 2]
+    check melted["variable"].toSeq() == @[v "math", v "science", v "math", v "science"]
+    check melted["value"].toSeq() == @[v 90, v 80, v 85, v 95]
 
 test "Apply custom function to a Series":
     var s = newSeries(@[1, 2, 3])
