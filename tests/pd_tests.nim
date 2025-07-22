@@ -99,7 +99,7 @@ test "GroupBy and sum":
     check summed["HR"] == v 2500
     check summed["IT"] == v 4500
 
-test "Chained filtering and sorting":
+test "Chain filtering and sorting":
     var df = newDataFrame()
     df["name"] = newSeries(@["A", "B", "C", "D"])
     df["score"] = newSeries(@[50, 60, 70, 80])
