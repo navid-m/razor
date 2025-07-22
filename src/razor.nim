@@ -400,6 +400,12 @@ proc describe*(df: DataFrame): DataFrame =
     result.index = statIndex
     result.updateShape()
 
+proc renameColumn*(df: DataFrame, oldName, newName: string) =
+    if not df.columns.hasKey(oldName):
+        raise newException(ValueError, "No such column exists to rename: " & oldName)
+    df.columns[newName] = df.columns[oldName]
+    df.columns.del(oldName)
+
 proc info*(df: DataFrame): string =
     result = "DataFrame Info:\n"
     result.add("Shape: " & $df.shape & "\n")
@@ -1088,4 +1094,5 @@ export
     dropNa,
     toCsv,
     toJson,
-    toParquet
+    toParquet,
+    renameColumn

@@ -59,7 +59,7 @@ test "Boolean filtering on Series":
     let filtered = df["x"].mask(mask)
     check filtered.toSeq() == @[v 3, v 4]
 
-test "Sort DataFrame by a numeric column ascending and descending":
+test "Sort dataframe by a numeric column ascending and descending":
     var df = newDataFrame()
     df["name"] = newSeries(@["Bob", "Alice", "Charlie"])
     df["score"] = newSeries(@[92.0, 85.5, 78.5])
@@ -75,3 +75,10 @@ test "Concatenate two dataframes vertically":
     df2["id"] = newSeries(@[3, 4])
     let combined = concat(df1, df2)
     check combined["id"].toSeq() == @[v 1, v 2, v 3, v 4]
+
+test "Rename columns in a dataframe":
+    var df = newDataFrame()
+    df["old_name"] = newSeries(@[1, 2, 3])
+    df.renameColumn("old_name", "new_name")
+    check df.columns.hasKey("new_name")
+    check not df.columns.hasKey("old_name")
