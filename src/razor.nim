@@ -263,15 +263,15 @@ proc newSeriesWithDataType*(
 proc newSeries*(data: seq[int64], name = ""): Series = newSeriesWithDataType(
         data.mapIt(newValue(it)), name, dtInt
     )
-
+proc newSeries*(data: seq[int], name = ""): Series = newSeriesWithDataType(
+        data.mapIt(newValue(it)), name, dtInt
+    )
 proc newSeries*(data: seq[float64], name = ""): Series = newSeriesWithDataType(
         data.mapIt(newValue(it)), name, dtFloat
     )
-
 proc newSeries*(data: seq[string], name = ""): Series = newSeriesWithDataType(
         data.mapIt(newValue(it)), name, dtString
     )
-
 proc newSeries*(data: seq[bool], name = ""): Series = newSeriesWithDataType(
         data.mapIt(newValue(it)), name, dtBool
     )
@@ -643,6 +643,124 @@ proc agg*(
 
     result.updateShape()
 
+proc `>`*(s: Series, value: Value): seq[bool] =
+    ## Element-wise greater than comparison
+    result = newSeq[bool](s.len)
+    for i in 0..<s.len:
+        result[i] = s.data[i] > value
+
+proc `>`*[T](s: Series, value: T): seq[bool] =
+    ## Element-wise greater than comparison with automatic conversion
+    s > newValue(value)
+
+proc `<`*(s: Series, value: Value): seq[bool] =
+    ## Element-wise less than comparison
+    result = newSeq[bool](s.len)
+    for i in 0..<s.len:
+        result[i] = s.data[i] < value
+
+proc `<`*[T](s: Series, value: T): seq[bool] =
+    ## Element-wise less than comparison with automatic conversion
+    s < newValue(value)
+
+proc `>=`*(s: Series, value: Value): seq[bool] =
+    ## Element-wise greater than or equal comparison
+    result = newSeq[bool](s.len)
+    for i in 0..<s.len:
+        result[i] = not (s.data[i] < value)
+
+proc `>=`*[T](s: Series, value: T): seq[bool] =
+    ## Element-wise greater than or equal comparison with automatic conversion
+    s >= newValue(value)
+
+proc `<=`*(s: Series, value: Value): seq[bool] =
+    ## Element-wise less than or equal comparison
+    result = newSeq[bool](s.len)
+    for i in 0..<s.len:
+        result[i] = not (value < s.data[i])
+
+proc `<=`*[T](s: Series, value: T): seq[bool] =
+    ## Element-wise less than or equal comparison with automatic conversion
+    s <= newValue(value)
+
+proc `==`*(s: Series, value: Value): seq[bool] =
+    ## Element-wise equality comparison
+    result = newSeq[bool](s.len)
+    for i in 0..<s.len:
+        result[i] = s.data[i] == value
+
+proc `==`*[T](s: Series, value: T): seq[bool] =
+    ## Element-wise equality comparison with automatic conversion
+    s == newValue(value)
+
+proc `!=`*(s: Series, value: Value): seq[bool] =
+    ## Element-wise inequality comparison
+    result = newSeq[bool](s.len)
+    for i in 0..<s.len:
+        result[i] = not (s.data[i] == value)
+
+proc `!=`*[T](s: Series, value: T): seq[bool] =
+    ## Element-wise inequality comparison with automatic conversion
+    s != newValue(value)
+
+proc mask*(s: Series, mask: seq[bool]): Series =
+    ## Filter Series using a boolean mask, keeping only true values
+    if s.len != mask.len:
+        raise newException(ValueError, "Series and mask must have the same length")
+
+    var filteredData: seq[Value] = @[]
+    var filteredIndex: seq[string] = @[]
+
+    for i in 0..<s.len:
+        if mask[i]:
+            filteredData.add(s.data[i])
+            filteredIndex.add(s.index[i])
+
+    Series(
+        data: filteredData,
+        name: s.name,
+        dtype: s.dtype,
+        index: filteredIndex
+    )
+
+proc loc*(s: Series, mask: seq[bool]): Series =
+    s.mask(mask)
+
+proc mask*(df: DataFrame, mask: seq[bool]): DataFrame =
+    if df.len != mask.len:
+        raise newException(ValueError, "DataFrame and mask must have the same length")
+
+    result = newDataFrame()
+
+    for name, series in df.columns:
+        result[name] = series.mask(mask)
+
+    var filteredIndex: seq[string] = @[]
+    for i in 0..<df.len:
+        if mask[i]:
+            filteredIndex.add(df.index[i])
+
+    result.index = filteredIndex
+    result.updateShape()
+
+proc loc*(df: DataFrame, mask: seq[bool]): DataFrame =
+    df.mask(mask)
+
+proc `>`*(a, b: Value): bool =
+    if a.kind != b.kind: return false
+    case a.kind
+    of dtInt: a.intVal > b.intVal
+    of dtFloat: a.floatVal > b.floatVal
+    of dtString: a.stringVal > b.stringVal
+    of dtBool: a.boolVal > b.boolVal
+    of dtDateTime: a.dateTimeVal > b.dateTimeVal
+
+proc `>=`*(a, b: Value): bool =
+    a > b or a == b
+
+proc `<=`*(a, b: Value): bool =
+    not (a > b)
+
 proc toDateTime*(s: string, format = "yyyy-MM-dd"): DateTime =
     parse(s, format)
 
@@ -969,6 +1087,7 @@ export
     valueCounts,
     describe,
     info,
+    mask,
     dropna,
     groupBy,
     dateRange,

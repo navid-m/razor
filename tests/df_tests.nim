@@ -51,3 +51,10 @@ test "Group by a categorical column, then compute mean":
     let result = df.groupBy("dept").mean("salary")
     check result["HR"] == 52_500.0
     check result["IT"] == 62_500.0
+
+test "Boolean filtering on Series":
+    var df = newDataFrame()
+    df["x"] = newSeries(@[1, 2, 3, 4])
+    let mask = df["x"] > 2
+    let filtered = df["x"].mask(mask)
+    check filtered.toSeq() == @[v 3, v 4]
