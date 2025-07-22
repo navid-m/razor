@@ -888,7 +888,6 @@ proc `$`*(df: DataFrame): string =
     if df.len > displayRows:
         result.add("... (" & $(df.len - displayRows) & " more rows)\n")
 
-
 proc slice*(
     df: DataFrame,
     startRow: int = 0,
