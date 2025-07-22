@@ -99,3 +99,8 @@ test "Quantile and median":
     var s = newSeries(@[1, 2, 3, 4, 5])
     check s.quantile(0.5) == v 3.0
     check s.median() == v 3.0
+
+test "Standard deviation and variance":
+    var s = newSeries(@[1.0, 2.0, 3.0])
+    check s.standardDeviation().round(3) == v 1.0
+    check s.variance().round(3) == v 1.0

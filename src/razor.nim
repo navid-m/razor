@@ -6,6 +6,7 @@ import
     times,
     json,
     sets,
+    math,
     os,
     razor/[models, values, ops]
 
@@ -742,7 +743,7 @@ proc isNa*(v: Value): bool =
     else: false
 
 proc fillNa*(s: Series, fillValue: Value): Series =
-    ## Fill missing values in a Series with the specified fill value.
+    ## Fill missing values in a series with the specified fill value.
     result = Series(
         name: s.name,
         dtype: s.dtype,
@@ -1121,7 +1122,7 @@ proc dtypes*(df: DataFrame): OrderedTable[string, string] =
         of dtNa: result[name] = "na"
 
 proc sort*(df: DataFrame, by: seq[string], ascending: seq[bool] = @[]): DataFrame =
-    ## Sort DataFrame by multiple columns
+    ## Sort a dataframe by multiple columns.
     if by.len == 0:
         raise newException(ValueError, "At least one column must be specified for sorting")
 
@@ -1162,6 +1163,97 @@ proc sort*(df: DataFrame, by: seq[string], ascending: seq[bool] = @[]): DataFram
         newIndex.add(df.index[i])
     result.index = newIndex
     result.updateShape()
+
+
+proc variance*(s: Series): Value =
+    ## Calculate sample variance of a series.
+    if s.len == 0:
+        raise newException(ValueError, "Cannot find variance of empty series")
+    if s.len == 1:
+        return newValue(0.0)
+
+    let meanVal = s.mean()
+    var sumSquaredDiffs = 0.0
+    var count = 0
+
+    for val in s.data:
+        case val.kind
+        of dtInt:
+            let diff = val.intVal.float64 - meanVal
+            sumSquaredDiffs += diff * diff
+            count += 1
+        of dtFloat:
+            let diff = val.floatVal - meanVal
+            sumSquaredDiffs += diff * diff
+            count += 1
+        else: discard
+
+    if count <= 1:
+        raise newException(ValueError, "Need at least 2 numeric values for variance calculation")
+
+    newValue(sumSquaredDiffs / (count - 1).float64) # Sample variance (n-1)
+
+
+proc variance*(grouped: GroupedDataFrame, column: string): OrderedTable[string, Value] =
+    ## Compute variance of a column for each group
+    result = initOrderedTable[string, Value]()
+
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+
+        let series = groupDf.columns[column]
+        if series.dtype notin {dtInt, dtFloat}:
+            raise newException(ValueError, "Variance can only be computed for numeric columns")
+
+        result[groupKey] = series.variance()
+
+proc standardDeviation*(s: Series): Value =
+    ## Compute sample standard deviation of a series.
+    let varianceVal = s.variance()
+    case varianceVal.kind
+    of dtFloat: newValue(sqrt(varianceVal.floatVal))
+    else: raise newException(ValueError, "Invalid variance value")
+
+proc standardDeviation*(
+    grouped: GroupedDataFrame,
+    column: string
+): OrderedTable[string, Value] =
+    ## Compute standard deviation of a column for each group.
+    result = initOrderedTable[string, Value]()
+
+    for groupKey, groupDf in grouped.groups:
+        if column notin groupDf.columns:
+            raise newException(KeyError, "Column '" & column & "' not found")
+
+        let series = groupDf.columns[column]
+        if series.dtype notin {dtInt, dtFloat}:
+            raise newException(ValueError, "Standard deviation can only be computed for numeric columns")
+
+        result[groupKey] = series.standardDeviation()
+
+proc round*(v: Value, decimals: int = 0): Value =
+    ## Round a value to a specified number of decimal places
+    case v.kind
+    of dtFloat:
+        let multiplier = pow(10.0, decimals.float64)
+        let rounded = round(v.floatVal * multiplier) / multiplier
+        newValue(rounded)
+    of dtInt:
+        v
+    else:
+        raise newException(ValueError, "Cannot round non-numeric value")
+
+proc round*(s: Series, decimals: int = 0): Series =
+    ## Round all values in a Series to specified number of decimal places
+    result = Series(
+        name: s.name,
+        dtype: s.dtype,
+        index: s.index,
+        data: newSeq[Value](s.len)
+    )
+    for i in 0..<s.len:
+        result.data[i] = s.data[i].round(decimals)
 
 proc `&`*(a, b: seq[bool]): seq[bool] =
     ## Element-wise AND operation for boolean sequences
