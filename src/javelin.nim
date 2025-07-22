@@ -2,7 +2,11 @@ import std/[tables, sequtils, strutils, algorithm, times, json, os]
 
 type
     DataType* = enum
-        dtInt, dtFloat, dtString, dtBool, dtDateTime
+        dtInt,
+        dtFloat,
+        dtString,
+        dtBool,
+        dtDateTime
 
     Value* = object
         case kind*: DataType
