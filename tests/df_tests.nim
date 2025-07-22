@@ -1,6 +1,6 @@
 import
     unittest,
-    javelin,
+    razor,
     times
 
 test "Can create a new DF, retrieve head, describe, create and read a CSV":
