@@ -1056,5 +1056,5 @@ export
     toJson,
     toParquet,
     fillNa,
-    dropNa,
-    v
+    v,
+    dropNa
