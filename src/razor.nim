@@ -842,6 +842,41 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
     result.index = newIndex
     result.updateShape()
 
+proc dropDuplicates*(df: DataFrame): DataFrame =
+    ## Remove duplicate rows from a dataframe.
+    result = newDataFrame()
+    var seenRows: seq[seq[string]] = @[]
+    var uniqueIndices: seq[int] = @[]
+
+    for i in 0..<df.len:
+        var currentRow: seq[string] = @[]
+        for _, series in df.columns:
+            currentRow.add($series.data[i])
+
+        if currentRow notin seenRows:
+            seenRows.add(currentRow)
+            uniqueIndices.add(i)
+
+    for name, series in df.columns:
+        var uniqueData: seq[Value] = @[]
+        var uniqueIndex: seq[string] = @[]
+        for i in uniqueIndices:
+            uniqueData.add(series.data[i])
+            uniqueIndex.add(series.index[i])
+
+        result[name] = Series(
+            data: uniqueData,
+            name: name,
+            dtype: series.dtype,
+            index: uniqueIndex
+        )
+
+    var newIndex: seq[string] = @[]
+    for i in uniqueIndices:
+        newIndex.add(df.index[i])
+    result.index = newIndex
+    result.updateShape()
+
 func quantile*(s: Series, q: float64): Value =
     if s.len == 0:
         raise newException(ValueError, "Cannot find quantile of empty series")

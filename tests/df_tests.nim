@@ -104,3 +104,11 @@ test "Standard deviation and variance":
     var s = newSeries(@[1.0, 2.0, 3.0])
     check s.standardDeviation().round(3) == v 1.0
     check s.variance().round(3) == v 1.0
+
+test "Drop duplicates and find unique values":
+    var df = newDataFrame()
+    df["name"] = newSeries(@["Alice", "Bob", "Alice"])
+    let unique = df["name"].unique()
+    check unique.toSeq() == @[v "Alice", v "Bob"]
+    let dropped = df.dropDuplicates()
+    check dropped["name"].toSeq() == @[v "Alice", v "Bob"]
