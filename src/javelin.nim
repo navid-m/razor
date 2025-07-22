@@ -229,9 +229,7 @@ proc newDataFrame*(data: OrderedTable[string, Series]): DataFrame =
             result.index[i] = $i
     result.updateShape()
 
-proc updateShape*(df: DataFrame) =
-    df.shape = (df.index.len, df.columns.len)
-
+proc updateShape*(df: DataFrame) = df.shape = (df.index.len, df.columns.len)
 proc len*(df: DataFrame): int = df.shape.rows
 
 proc `[]`*(df: DataFrame, col: string): Series =
