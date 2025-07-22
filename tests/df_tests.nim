@@ -112,3 +112,11 @@ test "Drop duplicates and find unique values":
     check unique.toSeq() == @[v "Alice", v "Bob"]
     let dropped = df.dropDuplicates()
     check dropped["name"].toSeq() == @[v "Alice", v "Bob"]
+
+test "Apply returning a new series":
+    var df = newDataFrame()
+    df["x"] = newSeries(@[1, 2, 3])
+    df["y"] = newSeries(@[4, 5, 6])
+    let z = df.applyRows(proc(row: OrderedTable[string, Value]): Value = v row[
+            "x"].int * row["y"].int)
+    check z.toSeq() == @[v 4, v 10, v 18]
