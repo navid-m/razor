@@ -188,6 +188,9 @@ proc tail*(df: DataFrame, n = 5): DataFrame =
     result.index = df.index[startIdx..^1]
     result.updateShape()
 
+proc standardDeviation*(s: Series): Value
+func quantile*(s: Series, q: float64): Value
+
 proc describe*(df: DataFrame): DataFrame =
     result = newDataFrame()
     var stats = @["count", "mean", "std", "min", "25%", "50%", "75%", "max"]
@@ -199,11 +202,11 @@ proc describe*(df: DataFrame): DataFrame =
             var statValues: seq[Value] = @[]
             statValues.add(newValue(series.len.int64))
             statValues.add(newValue(series.mean()))
-            statValues.add(newValue(0.0))
+            statValues.add(standardDeviation(series))
             statValues.add(series.min())
-            statValues.add(newValue(0.0))
-            statValues.add(newValue(0.0))
-            statValues.add(newValue(0.0))
+            statValues.add(quantile(series, 0.25))
+            statValues.add(quantile(series, 0.5))
+            statValues.add(quantile(series, 0.75))
             statValues.add(series.max())
 
             result[name] = newSeriesWithDataType(statValues, name)
