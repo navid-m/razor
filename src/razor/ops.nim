@@ -10,6 +10,7 @@ proc `$`*(v: Value): string =
     of dtString: v.stringVal
     of dtBool: $v.boolVal
     of dtDateTime: $v.dateTimeVal
+    of dtNa: "na"
 
 proc `==`*(a, b: Value): bool =
     if a.kind != b.kind: return false
@@ -19,6 +20,7 @@ proc `==`*(a, b: Value): bool =
     of dtString: a.stringVal == b.stringVal
     of dtBool: a.boolVal == b.boolVal
     of dtDateTime: a.dateTimeVal == b.dateTimeVal
+    of dtNa: false
 
 proc `<`*(a, b: Value): bool =
     if a.kind != b.kind: return false
@@ -28,6 +30,7 @@ proc `<`*(a, b: Value): bool =
     of dtString: a.stringVal < b.stringVal
     of dtBool: a.boolVal < b.boolVal
     of dtDateTime: a.dateTimeVal < b.dateTimeVal
+    of dtNa: false
 
 proc `+`*(a, b: Value): Value =
     case a.kind

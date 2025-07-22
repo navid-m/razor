@@ -8,7 +8,8 @@ type
         dtFloat,
         dtString,
         dtBool,
-        dtDateTime
+        dtDateTime,
+        dtNa
 
     Value* = object
         case kind*: DataType
@@ -17,6 +18,7 @@ type
         of dtString: stringVal*: string
         of dtBool: boolVal*: bool
         of dtDateTime: dateTimeVal*: DateTime
+        of dtNa: discard
 
     Series* = ref object
         data*: seq[Value]

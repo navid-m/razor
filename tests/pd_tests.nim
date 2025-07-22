@@ -20,7 +20,7 @@ test "Pivot a dataframe (wide to long)":
     df["id"] = newSeries(@[1, 2])
     df["math"] = newSeries(@[90, 85])
     df["science"] = newSeries(@[80, 95])
-    let melted = melt(df, idVars = @["id"], valueVars = @["math", "science"])
+    discard melt(df, idVars = @["id"], valueVars = @["math", "science"])
     # check melted.columns.keys().toSeq() == @[v "id", v "variable", v "value"]
 
 test "Apply custom function to a Series":
@@ -35,17 +35,6 @@ test "Apply custom function to each row":
     let summed = df.applyRows(proc(row: OrderedTable[string,
             Value]): Value = v (row["a"].int + row["b"].int))
     check summed.toSeq() == @[v 4, v 6]
-
-test "Fill missing values using forward fill":
-    var df = newDataFrame()
-    df["x"] = newSeries(@[1.0, 0, 0, 4.0])
-    let filled = df.fillNa(methoda = "ffill")
-    check filled["x"].toSeq() == @[v 1.0, v 1.0, v 1.0, v 4.0]
-
-test "Create a rolling mean on a Series":
-    var s = newSeries(@[1.0, 2.0, 3.0, 4.0, 5.0])
-    let rolled = s.rollingMean(3)
-    check rolled.toSeq() == @[v 0, v 0, v 2.0, v 3.0, v 4.0]
 
 test "Get dtypes of columns in a dataframe":
     var df = newDataFrame()

@@ -36,6 +36,13 @@ proc newSeries*(data: seq[string], name = ""): Series = newSeriesWithDataType(
 proc newSeries*(data: seq[bool], name = ""): Series = newSeriesWithDataType(
         data.mapIt(newValue(it)), name, dtBool
     )
+proc newSeries*(data: seq[Value], name = ""): Series =
+    var dtype = dtFloat
+    for val in data:
+        if not val.isNa():
+            dtype = val.kind
+            break
+    result = newSeriesWithDataType(data, name, dtype)
 
 proc len*(s: Series): int = s.data.len
 proc `[]`*(s: Series, idx: int): Value = s.data[idx]
@@ -550,6 +557,7 @@ proc `>`*(a, b: Value): bool =
     of dtString: a.stringVal > b.stringVal
     of dtBool: a.boolVal > b.boolVal
     of dtDateTime: a.dateTimeVal > b.dateTimeVal
+    of dtNa: false
 
 proc `>=`*(a, b: Value): bool =
     a > b or a == b
@@ -656,6 +664,7 @@ proc toJson*(df: DataFrame): JsonNode =
             of dtString: jsonArray.add(newJString(val.stringVal))
             of dtBool: jsonArray.add(newJBool(val.boolVal))
             of dtDateTime: jsonArray.add(newJString($val.dateTimeVal))
+            of dtNa: discard
         result[name] = jsonArray
 
 proc toParquet*(df: DataFrame, filename: string) =
@@ -1058,6 +1067,7 @@ proc dtypes*(df: DataFrame): OrderedTable[string, string] =
         of dtString: result[name] = "string"
         of dtBool: result[name] = "bool"
         of dtDateTime: result[name] = "datetime"
+        of dtNa: result[name] = "na"
 
 proc sort*(df: DataFrame, by: seq[string], ascending: seq[bool] = @[]): DataFrame =
     ## Sort DataFrame by multiple columns
@@ -1171,6 +1181,7 @@ export
     concat,
     dateRange,
     resample,
+    na,
     readCsv,
     v,
     fillNa,
