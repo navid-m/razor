@@ -217,8 +217,10 @@ proc valueCounts*(s: Series): DataFrame =
     result.updateShape()
 
 proc newDataFrame*(): DataFrame =
-    DataFrame(columns: initOrderedTable[string, Series](), index: @[], shape: (
-            0, 0))
+    DataFrame(
+        columns: initOrderedTable[string, Series](),
+        index: @[], shape: (0, 0)
+    )
 
 proc newDataFrame*(data: OrderedTable[string, Series]): DataFrame =
     result = DataFrame(columns: data, index: @[], shape: (0, 0))
