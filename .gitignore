@@ -1,0 +1,8 @@
+.vscode
+data.csv
+nimclipboard
+*.exe
+*.lib
+*.pdb
+.DS_Store
+*.dmp
