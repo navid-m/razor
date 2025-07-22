@@ -586,9 +586,113 @@ proc slice*(df: DataFrame, colNames: seq[string]): DataFrame =
 
     result.shape = (df.shape.rows, colNames.len)
 
-proc toSeq*(series: Series): seq[Value] =
-    ## Converts a Series to a sequence of values.
-    result = series.data
+proc toSeq*(series: Series): seq[Value] = result = series.data
+
+proc isNa*(v: Value): bool =
+    ## Check if a value is considered missing/null.
+    case v.kind
+    of dtString: v.stringVal == "" or v.stringVal == "NaN" or v.stringVal == "null"
+    of dtFloat: v.floatVal != v.floatVal
+    else: false
+
+proc fillNa*(s: Series, fillValue: Value): Series =
+    ## Fill missing values in a Series with the specified fill value.
+    result = Series(
+        name: s.name,
+        dtype: s.dtype,
+        index: s.index,
+        data: newSeq[Value](s.len)
+    )
+
+    for i in 0..<s.len:
+        if s.data[i].isNa():
+            result.data[i] = fillValue
+        else:
+            result.data[i] = s.data[i]
+
+proc fillNa*(df: DataFrame, fillValue: Value): DataFrame =
+    ## Fill missing values in all columns of a DataFrame with the specified fill value
+    result = newDataFrame()
+    result.index = df.index
+
+    for name, series in df.columns:
+        result[name] = series.fillNa(fillValue)
+
+    result.updateShape()
+
+proc fillNa*(
+    df: DataFrame,
+    fillValues: OrderedTable[string, Value]): DataFrame =
+    ## Fill missing values in specific columns with different fill values
+    result = newDataFrame()
+    result.index = df.index
+
+    for name, series in df.columns:
+        if name in fillValues:
+            result[name] = series.fillNa(fillValues[name])
+        else:
+            result[name] = series
+
+    result.updateShape()
+
+proc dropNa*(s: Series): Series =
+    ## Remove missing values from a Series.
+    var validData: seq[Value] = @[]
+    var validIndex: seq[string] = @[]
+
+    for i in 0..<s.len:
+        if not s.data[i].isNa():
+            validData.add(s.data[i])
+            validIndex.add(s.index[i])
+
+    Series(
+        data: validData,
+        name: s.name,
+        dtype: s.dtype,
+        index: validIndex
+    )
+
+proc dropNa*(df: DataFrame, how = "any"): DataFrame =
+    ## Remove rows with missing values from a DataFrame.
+    result = newDataFrame()
+    var validRows: seq[int] = @[]
+
+    for i in 0..<df.len:
+        var naCount = 0
+        var totalCols = df.columns.len
+
+        for _, series in df.columns:
+            if series.data[i].isNa():
+                naCount += 1
+
+        let shouldKeep = case how
+        of "any": naCount == 0
+        of "all": naCount < totalCols
+        else: naCount == 0
+
+        if shouldKeep:
+            validRows.add(i)
+
+    for name, series in df.columns:
+        var cleanData: seq[Value] = @[]
+        var cleanIndex: seq[string] = @[]
+
+        for i in validRows:
+            cleanData.add(series.data[i])
+            cleanIndex.add(series.index[i])
+
+        result[name] = Series(
+            data: cleanData,
+            name: name,
+            dtype: series.dtype,
+            index: cleanIndex
+        )
+
+    var newIndex: seq[string] = @[]
+    for i in validRows:
+        newIndex.add(df.index[i])
+    result.index = newIndex
+    result.updateShape()
 
 export
     DataType,
@@ -616,4 +720,6 @@ export
     readCsv,
     toCsv,
     toJson,
-    toParquet
+    toParquet,
+    fillNa,
+    dropNa

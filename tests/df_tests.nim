@@ -3,7 +3,7 @@ import
     razor,
     times
 
-test "Can create a new DF, retrieve head, describe, create and read a CSV":
+test "Create a new DF, retrieve head, describe, create and read a CSV":
     var df = newDataFrame()
     df["name"] = newSeries(@["Alice", "Bob", "Charlie"])
     df["age"] = newSeries(@[25'i64, 30'i64, 35'i64])
@@ -18,9 +18,21 @@ test "Can create a new DF, retrieve head, describe, create and read a CSV":
     discard readCsv("data.csv")
     discard dateRange(now(), 10, "D")
 
-test "Can index and slice DataFrame rows and columns":
+test "Index and slice DataFrame rows and columns":
     var df = newDataFrame()
     df["city"] = newSeries(@["NY", "SF", "LA", "CHI"])
     df["temp"] = newSeries(@[22.0, 19.5, 25.1, 17.8])
 
     assert(df["city"][1] == newValue("SF"), "Dataframe lookup")
+
+test "Handle missing values with fillna and dropna":
+    var df = newDataFrame()
+    df["value"] = newSeries(@[1.0, NaN, 3.0, NaN, 5.0])
+
+    let filled = df["value"].fillNa(newValue(0.0))
+    check filled.toSeq() == @[
+        newValue(1.0), newValue(0.0), newValue(3.0),
+            newValue(0.0), newValue(5.0)]
+
+    let dropped = df["value"].dropNa()
+    check dropped.toSeq() == @[newValue(1.0), newValue(3.0), newValue(5.0)]
