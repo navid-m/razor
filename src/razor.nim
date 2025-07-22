@@ -1052,9 +1052,9 @@ export
     dateRange,
     resample,
     readCsv,
-    toCsv,
-    toJson,
     v,
     fillNa,
     dropNa,
+    toCsv,
+    toJson,
     toParquet
