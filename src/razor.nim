@@ -5,50 +5,8 @@ import
     algorithm,
     times,
     json,
-    os
-
-type
-    DataType* = enum
-        dtInt,
-        dtFloat,
-        dtString,
-        dtBool,
-        dtDateTime
-
-    Value* = object
-        case kind*: DataType
-        of dtInt: intVal*: int64
-        of dtFloat: floatVal*: float64
-        of dtString: stringVal*: string
-        of dtBool: boolVal*: bool
-        of dtDateTime: dateTimeVal*: DateTime
-
-    Series* = ref object
-        data*: seq[Value]
-        name*: string
-        dtype*: DataType
-        index*: seq[string]
-
-    DataFrame* = ref object
-        columns*: OrderedTable[string, Series]
-        index*: seq[string]
-        shape*: tuple[rows, cols: int]
-
-    GroupedDataFrame* = ref object
-        groups*: OrderedTable[string, DataFrame]
-        groupByColumn*: string
-
-proc newValue*(val: int64): Value = Value(kind: dtInt, intVal: val)
-proc newValue*(val: float64): Value = Value(kind: dtFloat, floatVal: val)
-proc newValue*(val: string): Value = Value(kind: dtString, stringVal: val)
-proc newValue*(val: bool): Value = Value(kind: dtBool, boolVal: val)
-proc newValue*(val: DateTime): Value = Value(kind: dtDateTime, dateTimeVal: val)
-
-template v*(val: int64): Value = newValue(val)
-template v*(val: float64): Value = newValue(val)
-template v*(val: string): Value = newValue(val)
-template v*(val: bool): Value = newValue(val)
-template v*(val: DateTime): Value = newValue(val)
+    os,
+    razor/[models, values]
 
 proc `$`*(v: Value): string =
     case v.kind
@@ -1075,6 +1033,7 @@ export
     DataFrame,
     newSeriesWithDataType,
     newSeries,
+    newValue,
     newDataFrame,
     head,
     tail,
