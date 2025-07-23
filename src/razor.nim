@@ -10,40 +10,55 @@ import
     os,
     razor/[models, values, ops]
 
+proc buildIndex(len: int): seq[string] =
+    result = newSeq[string](len)
+    for i in 0..<len:
+        result[i] = $i
+
 proc newSeriesWithDataType*(
     data: seq[Value],
     name = "",
     dtype: DataType = dtString
 ): Series =
-    ## Create a new series given a sequence of data, the name, and
-    ## the datatype itself.
-    var index = newSeq[string](data.len)
-    for i in 0..<data.len:
-        index[i] = $i
-    Series(data: data, name: name, dtype: dtype, index: index)
+    Series(
+        data: data,
+        name: name,
+        dtype: dtype,
+        index: buildIndex(data.len)
+    )
 
-proc newSeries*(data: seq[int64], name = ""): Series = newSeriesWithDataType(
-        data.mapIt(newValue(it)), name, dtInt
-    )
-proc newSeries*(data: seq[int], name = ""): Series = newSeriesWithDataType(
-        data.mapIt(newValue(it)), name, dtInt
-    )
-proc newSeries*(data: seq[float64], name = ""): Series = newSeriesWithDataType(
-        data.mapIt(newValue(it)), name, dtFloat
-    )
-proc newSeries*(data: seq[string], name = ""): Series = newSeriesWithDataType(
-        data.mapIt(newValue(it)), name, dtString
-    )
-proc newSeries*(data: seq[bool], name = ""): Series = newSeriesWithDataType(
-        data.mapIt(newValue(it)), name, dtBool
-    )
+template newSeriesFromRaw*(T: typedesc, dt: DataType, conv: untyped) =
+    proc newSeries*(data: seq[T], name = ""): Series =
+        let len = data.len
+        var values = newSeqOfCap[Value](len)
+        values.setLen(len)
+        for i in 0..<len:
+            values[i] = conv(data[i])
+        Series(
+            data: values,
+            name: name,
+            dtype: dt,
+            index: buildIndex(len)
+        )
+
+newSeriesFromRaw(int, dtInt, newValue)
+newSeriesFromRaw(int64, dtInt, newValue)
+newSeriesFromRaw(float64, dtFloat, newValue)
+newSeriesFromRaw(string, dtString, newValue)
+newSeriesFromRaw(bool, dtBool, newValue)
+
 proc newSeries*(data: seq[Value], name = ""): Series =
     var dtype = dtFloat
     for val in data:
         if not val.isNa():
             dtype = val.kind
             break
-    result = newSeriesWithDataType(data, name, dtype)
+    Series(
+        data: data,
+        name: name,
+        dtype: dtype,
+        index: buildIndex(data.len)
+    )
 
 proc len*(s: Series): int = s.data.len
 proc `[]`*(s: Series, idx: int): Value = s.data[idx]
