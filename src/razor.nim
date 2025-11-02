@@ -8,7 +8,57 @@ import
     sets,
     math,
     os,
+    threadpool,
+    atomics,
     razor/[models, values, ops]
+
+export threadpool
+
+const
+    ChunkSize* = 1000  # Number of rows to process per thread
+    MaxThreads* = 4    # Fixed number of threads for parallel processing
+
+type
+    CsvChunkResult = object
+        data: seq[seq[Value]]
+        startIdx: int
+        endIdx: int
+
+proc parseCsvChunkImpl(lines: seq[string], startIdx, endIdx: int, headers: seq[string], sep: string): CsvChunkResult {.thread.} =
+    ## Parse a chunk of CSV lines in a separate thread
+    result.data = newSeq[seq[Value]](headers.len)
+    for i in 0..<headers.len:
+        result.data[i] = newSeqOfCap[Value](endIdx - startIdx + 1)
+    
+    result.startIdx = startIdx
+    result.endIdx = endIdx
+    
+    for i in startIdx..<endIdx:
+        if i >= lines.len or lines[i].len == 0: continue
+        
+        let values = lines[i].split(sep)
+        for j in 0..<min(values.len, headers.len):
+            let val = values[j].strip()
+            var parsedVal: Value
+            
+            if val.len == 0:
+                parsedVal = na()
+            elif val[0] in {'0'..'9', '-', '+'}:
+                try:
+                    if '.' in val:
+                        parsedVal = newValue(parseFloat(val))
+                    else:
+                        parsedVal = newValue(parseInt(val).int64)
+                except ValueError:
+                    parsedVal = newValue(val)
+            elif val.toLowerAscii() == "true":
+                parsedVal = newValue(true)
+            elif val.toLowerAscii() == "false":
+                parsedVal = newValue(false)
+            else:
+                parsedVal = newValue(val)
+            
+            result.data[j].add(parsedVal)
 
 proc newSeriesWithDataType*(
     data: seq[Value],
@@ -165,7 +215,6 @@ proc newDataFrame*(data: OrderedTable[string, Series]): DataFrame =
 proc updateShape*(df: DataFrame) =
     var rows = df.index.len
     if rows == 0 and df.columns.len > 0:
-        # Derive row count from the first column when index is implicit
         let firstSeries = toSeq(df.columns.values)[0]
         rows = firstSeries.len
     df.shape = (rows, df.columns.len)
@@ -589,58 +638,72 @@ proc resample*(df: DataFrame, rule: string, dateCol: string): DataFrame =
     result = newDataFrame()
     result = df
 
-proc readCsv*(filename: string, sep = ","): DataFrame =
+proc readCsv*(filename: string, sep = ",", useThreads = true): DataFrame =
     result = newDataFrame()
     if not fileExists(filename):
         raise newException(IOError, "File not found: " & filename)
     
-    var file = open(filename, fmRead)
-    defer: file.close()
+    let lines = readFile(filename).splitLines()
+    if lines.len == 0:
+        return result
     
-    let 
-        headerLine = file.readLine()
-        headers = headerLine.split(sep).mapIt(it.strip())
+    let headers = lines[0].split(sep).mapIt(it.strip())
+    var allColumns: seq[seq[Value]]
     
-    var columns = newSeq[seq[Value]](headers.len)
-    for i in 0..<headers.len:
-        columns[i] = newSeqOfCap[Value](1000)
-        result[headers[i]] = newSeries(newSeq[Value](0), headers[i])
-    
-    var line: string
-    var lineNum = 1
-    while file.readLine(line):
-        if line.len == 0: 
-            lineNum.inc
-            continue
+    if useThreads and lines.len > ChunkSize * 2:
+        let chunkSize = ChunkSize
+        var chunks: seq[FlowVar[CsvChunkResult]] = @[]
         
-        let values = line.split(sep)
-        for i in 0..<min(values.len, headers.len):
-            let val = values[i].strip()
-            var parsedVal: Value
+        for i in countup(1, lines.high, chunkSize):
+            let endIdx = min(i + chunkSize, lines.high)
+            chunks.add(spawn parseCsvChunkImpl(lines, i, endIdx, headers, sep))
+        
+        allColumns = newSeq[seq[Value]](headers.len)
+        for i in 0..<headers.len:
+            allColumns[i] = newSeqOfCap[Value](lines.len - 1)
+        
+        for chunkFut in chunks:
+            let chunk = ^chunkFut
+            for colIdx in 0..<headers.len:
+                allColumns[colIdx].add(chunk.data[colIdx])
+    else:
+        allColumns = newSeq[seq[Value]](headers.len)
+        for i in 0..<headers.len:
+            allColumns[i] = newSeq[Value]()
+        
+        var rowCount = 0
+        for i in 1..<lines.len:
+            if lines[i].len == 0: continue
             
-            if val.len == 0:
-                parsedVal = na()
-            elif val[0] in {'0'..'9', '-', '+'}:
-                try:
-                    if '.' in val:
-                        parsedVal = newValue(parseFloat(val))
-                    else:
-                        parsedVal = newValue(parseInt(val).int64)
-                except ValueError:
+            let values = lines[i].split(sep)
+            if values.len == 0: continue
+            
+            for j in 0..<min(values.len, headers.len):
+                let val = values[j].strip()
+                var parsedVal: Value
+                
+                if val.len == 0:
+                    parsedVal = na()
+                elif val[0] in {'0'..'9', '-', '+'}:
+                    try:
+                        if '.' in val:
+                            parsedVal = newValue(parseFloat(val))
+                        else:
+                            parsedVal = newValue(parseInt(val).int64)
+                    except ValueError:
+                        parsedVal = newValue(val)
+                elif val.toLowerAscii() == "true":
+                    parsedVal = newValue(true)
+                elif val.toLowerAscii() == "false":
+                    parsedVal = newValue(false)
+                else:
                     parsedVal = newValue(val)
-            elif val.toLowerAscii() == "true":
-                parsedVal = newValue(true)
-            elif val.toLowerAscii() == "false":
-                parsedVal = newValue(false)
-            else:
-                parsedVal = newValue(val)
-            
-            columns[i].add(parsedVal)
-        
-        lineNum.inc
+                
+                allColumns[j].add(parsedVal)
+            rowCount.inc()
     
     for i, header in headers:
-        result[header] = newSeries(columns[i], header)
+        result[header] = newSeries(allColumns[i], header)
     
     if result.columns.len > 0:
         let firstCol = toSeq(result.columns.values)[0]
