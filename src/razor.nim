@@ -593,44 +593,61 @@ proc readCsv*(filename: string, sep = ","): DataFrame =
     result = newDataFrame()
     if not fileExists(filename):
         raise newException(IOError, "File not found: " & filename)
-    let content = readFile(filename)
-    let lines = content.splitLines()
-
-    if lines.len == 0:
-        return result
-
-    let headers = lines[0].split(sep)
-    for header in headers:
-        result[header.strip()] = newSeriesWithDataType(@[], header.strip())
-
-    for i in 1..<lines.len:
-        if lines[i].len == 0: continue
-        let values = lines[i].split(sep)
-
-        var j = 0
-        for header in headers:
-            if j < values.len:
-                let val = values[j].strip()
-                var parsedVal: Value
+    
+    var file = open(filename, fmRead)
+    defer: file.close()
+    
+    let 
+        headerLine = file.readLine()
+        headers = headerLine.split(sep).mapIt(it.strip())
+    
+    var columns = newSeq[seq[Value]](headers.len)
+    for i in 0..<headers.len:
+        columns[i] = newSeqOfCap[Value](1000)
+        result[headers[i]] = newSeries(newSeq[Value](0), headers[i])
+    
+    var line: string
+    var lineNum = 1
+    while file.readLine(line):
+        if line.len == 0: 
+            lineNum.inc
+            continue
+        
+        let values = line.split(sep)
+        for i in 0..<min(values.len, headers.len):
+            let val = values[i].strip()
+            var parsedVal: Value
+            
+            if val.len == 0:
+                parsedVal = na()
+            elif val[0] in {'0'..'9', '-', '+'}:
                 try:
-                    parsedVal = newValue(parseInt(val).int64)
-                except ValueError:
-                    try:
+                    if '.' in val:
                         parsedVal = newValue(parseFloat(val))
-                    except ValueError:
-                        if val.toLowerAscii() in ["true", "false"]:
-                            parsedVal = newValue(val.toLowerAscii() == "true")
-                        else:
-                            parsedVal = newValue(val)
-
-                result[header.strip()].data.add(parsedVal)
-            j += 1
-
+                    else:
+                        parsedVal = newValue(parseInt(val).int64)
+                except ValueError:
+                    parsedVal = newValue(val)
+            elif val.toLowerAscii() == "true":
+                parsedVal = newValue(true)
+            elif val.toLowerAscii() == "false":
+                parsedVal = newValue(false)
+            else:
+                parsedVal = newValue(val)
+            
+            columns[i].add(parsedVal)
+        
+        lineNum.inc
+    
+    for i, header in headers:
+        result[header] = newSeries(columns[i], header)
+    
     if result.columns.len > 0:
         let firstCol = toSeq(result.columns.values)[0]
         result.index = newSeq[string](firstCol.len)
         for i in 0..<firstCol.len:
             result.index[i] = $i
+    
     result.updateShape()
 
 proc toCsv*(df: DataFrame, filename: string, sep = ",", index = false) =
