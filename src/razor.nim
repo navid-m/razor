@@ -9,14 +9,11 @@ import
     math,
     os,
     threadpool,
-    atomics,
     razor/[models, values, ops]
 
-export threadpool
-
 const
-    ChunkSize* = 1000  # Number of rows to process per thread
-    MaxThreads* = 4    # Fixed number of threads for parallel processing
+    ChunkSize* = 1000
+    MaxThreads* = 4  
 
 type
     CsvChunkResult = object
