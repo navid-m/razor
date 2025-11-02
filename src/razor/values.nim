@@ -7,7 +7,6 @@ proc newValue*(val: float64): Value = Value(kind: dtFloat, floatVal: val)
 proc newValue*(val: string): Value = Value(kind: dtString, stringVal: val)
 proc newValue*(val: bool): Value = Value(kind: dtBool, boolVal: val)
 proc newValue*(val: DateTime): Value = Value(kind: dtDateTime, dateTimeVal: val)
-
 proc newNaValue*(): Value = Value(kind: dtNa)
 
 template na*(): Value = newNaValue()

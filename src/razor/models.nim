@@ -31,6 +31,6 @@ type
         index*: seq[string]
         shape*: tuple[rows, cols: int]
 
-    GroupedDataFrame* = ref object
+    GroupedDataFrame* = object
         groups*: OrderedTable[string, DataFrame]
         groupByColumn*: string
