@@ -24,7 +24,7 @@ proc newSeriesWithDataType*(
         data: data,
         name: name,
         dtype: dtype,
-        index: buildIndex(data.len)
+        index: @[]
     )
 
 template newSeriesFromRaw*(T: typedesc, dt: DataType, conv: untyped) =
@@ -38,7 +38,7 @@ template newSeriesFromRaw*(T: typedesc, dt: DataType, conv: untyped) =
             data: values,
             name: name,
             dtype: dt,
-            index: buildIndex(len)
+            index: @[]
         )
 
 newSeriesFromRaw(int, dtInt, newValue)
@@ -57,7 +57,7 @@ proc newSeries*(data: seq[Value], name = ""): Series =
         data: data,
         name: name,
         dtype: dtype,
-        index: buildIndex(data.len)
+        index: @[]
     )
 
 proc len*(s: Series): int = s.data.len
@@ -72,12 +72,12 @@ proc `[]=`*(s: Series, idx: int, val: Value) = s.data[idx] = val
 proc head*(s: Series, n = 5): Series =
     let endIdx = min(n, s.len)
     Series(data: s.data[0..<endIdx], name: s.name, dtype: s.dtype,
-            index: s.index[0..<endIdx])
+            index: if s.index.len == 0: @[] else: s.index[0..<endIdx])
 
 proc tail*(s: Series, n = 5): Series =
     let startIdx = max(0, s.len - n)
     Series(data: s.data[startIdx..^1], name: s.name, dtype: s.dtype,
-            index: s.index[startIdx..^1])
+            index: if s.index.len == 0: @[] else: s.index[startIdx..^1])
 
 proc sum*(s: Series): Value =
     if s.len == 0: return newValue(0'i64)
@@ -119,7 +119,8 @@ proc sort*(s: Series, ascending = true): Series =
 
     for i in 0..<s.len:
         sortedData[i] = s.data[sortedIndices[i]]
-        sortedIndex[i] = s.index[sortedIndices[i]]
+        if s.index.len > 0:
+            sortedIndex[i] = s.index[sortedIndices[i]]
 
     Series(data: sortedData, name: s.name, dtype: s.dtype, index: sortedIndex)
 
@@ -132,7 +133,7 @@ proc unique*(s: Series): Series =
         if val notin seen:
             seen.add(val)
             uniqueData.add(val)
-            uniqueIndex.add(s.index[i])
+            if s.index.len > 0: uniqueIndex.add(s.index[i])
 
     Series(data: uniqueData, name: s.name, dtype: s.dtype, index: uniqueIndex)
 
@@ -164,14 +165,15 @@ proc newDataFrame*(): DataFrame =
 
 proc newDataFrame*(data: OrderedTable[string, Series]): DataFrame =
     result = DataFrame(columns: data, index: @[], shape: (0, 0))
-    if data.len > 0:
-        let firstSeries = toSeq(data.values)[0]
-        result.index = newSeq[string](firstSeries.len)
-        for i in 0..<firstSeries.len:
-            result.index[i] = $i
     result.updateShape()
 
-proc updateShape*(df: DataFrame) = df.shape = (df.index.len, df.columns.len)
+proc updateShape*(df: DataFrame) =
+    var rows = df.index.len
+    if rows == 0 and df.columns.len > 0:
+        # Derive row count from the first column when index is implicit
+        let firstSeries = toSeq(df.columns.values)[0]
+        rows = firstSeries.len
+    df.shape = (rows, df.columns.len)
 proc len*(df: DataFrame): int = df.shape.rows
 
 proc `[]`*(df: DataFrame, col: string): Series =
@@ -181,10 +183,6 @@ proc `[]`*(df: DataFrame, col: string): Series =
 
 proc `[]=`*(df: DataFrame, col: string, series: Series) =
     df.columns[col] = series
-    if df.index.len == 0 and series.len > 0:
-        df.index = newSeq[string](series.len)
-        for i in 0..<series.len:
-            df.index[i] = $i
     df.updateShape()
 
 proc head*(df: DataFrame, n = 5): DataFrame =
@@ -192,7 +190,7 @@ proc head*(df: DataFrame, n = 5): DataFrame =
     result = newDataFrame()
     for name, series in df.columns:
         result[name] = series.head(endIdx)
-    result.index = df.index[0..<endIdx]
+    result.index = if df.index.len == 0: @[] else: df.index[0..<endIdx]
     result.updateShape()
 
 proc tail*(df: DataFrame, n = 5): DataFrame =
@@ -200,7 +198,7 @@ proc tail*(df: DataFrame, n = 5): DataFrame =
     result = newDataFrame()
     for name, series in df.columns:
         result[name] = series.tail(n)
-    result.index = df.index[startIdx..^1]
+    result.index = if df.index.len == 0: @[] else: df.index[startIdx..^1]
     result.updateShape()
 
 proc standardDeviation*(s: Series): Value
@@ -293,13 +291,15 @@ proc sort*(df: DataFrame, by: string, ascending = true): DataFrame =
         var sortedIndex: seq[string] = @[]
         for i in sortedIndices:
             sortedData.add(series.data[i])
-            sortedIndex.add(series.index[i])
+            if series.index.len > 0:
+                sortedIndex.add(series.index[i])
         result[name] = Series(data: sortedData, name: name, dtype: series.dtype,
                 index: sortedIndex)
 
     var newIndex: seq[string] = @[]
     for i in sortedIndices:
-        newIndex.add(df.index[i])
+        if df.index.len > 0:
+            newIndex.add(df.index[i])
     result.index = newIndex
     result.updateShape()
 
@@ -324,13 +324,15 @@ proc groupBy*(df: DataFrame, by: string): GroupedDataFrame =
             var groupIndex: seq[string] = @[]
             for i in indices:
                 groupData.add(series.data[i])
-                groupIndex.add(series.index[i])
+                if series.index.len > 0:
+                    groupIndex.add(series.index[i])
             groupDf[name] = Series(data: groupData, name: name,
                     dtype: series.dtype, index: groupIndex)
 
         var newIndex: seq[string] = @[]
         for i in indices:
-            newIndex.add(df.index[i])
+            if df.index.len > 0:
+                newIndex.add(df.index[i])
         groupDf.index = newIndex
         groupDf.updateShape()
         groupedDfs[key] = groupDf
@@ -506,7 +508,8 @@ proc mask*(s: Series, mask: seq[bool]): Series =
     for i in 0..<s.len:
         if mask[i]:
             filteredData.add(s.data[i])
-            filteredIndex.add(s.index[i])
+            if s.index.len > 0:
+                filteredIndex.add(s.index[i])
 
     Series(
         data: filteredData,
@@ -530,7 +533,8 @@ proc mask*(df: DataFrame, mask: seq[bool]): DataFrame =
     var filteredIndex: seq[string] = @[]
     for i in 0..<df.len:
         if mask[i]:
-            filteredIndex.add(df.index[i])
+            if df.index.len > 0:
+                filteredIndex.add(df.index[i])
 
     result.index = filteredIndex
     result.updateShape()
@@ -631,7 +635,8 @@ proc toCsv*(df: DataFrame, filename: string, sep = ",", index = false) =
     content.add(headers.join(sep) & "\n")
     for i in 0..<df.len:
         if index:
-            content.add(df.index[i] & sep)
+            let idxStr = if df.index.len == 0: $i else: df.index[i]
+            content.add(idxStr & sep)
 
         var row: seq[string] = @[]
         for header in headers:
@@ -666,7 +671,8 @@ proc `$`*(s: Series): string =
     result = "Series: " & s.name & " (dtype: " & $s.dtype & ")\n"
     let displayCount = min(10, s.len)
     for i in 0..<displayCount:
-        result.add(s.index[i] & "    " & $s.data[i] & "\n")
+        let idxStr = if s.index.len == 0: $i else: s.index[i]
+        result.add(idxStr & "    " & $s.data[i] & "\n")
     if s.len > displayCount:
         result.add("... (" & $(s.len - displayCount) & " more)\n")
     result.add("Length: " & $s.len)
@@ -680,7 +686,8 @@ proc `$`*(df: DataFrame): string =
         result.add(header.align(12) & " ")
     result.add("\n")
     for i in 0..<displayRows:
-        result.add(df.index[i].align(4) & " ")
+        let idxStr = if df.index.len == 0: $i else: df.index[i]
+        result.add(idxStr.align(4) & " ")
         for header in headers:
             result.add(($df.columns[header].data[i]).align(12) & " ")
         result.add("\n")
@@ -720,7 +727,7 @@ proc slice*(
     let colNames = toSeq(df.columns.keys())
     let selectedCols = colNames[startCol..<actualEndCol]
 
-    result.index = df.index[startRow..<actualEndRow]
+    result.index = if df.index.len == 0: @[] else: df.index[startRow..<actualEndRow]
 
     for colName in selectedCols:
         let originalSeries = df.columns[colName]
@@ -728,7 +735,7 @@ proc slice*(
         newSeries.name = originalSeries.name
         newSeries.dtype = originalSeries.dtype
         newSeries.data = originalSeries.data[startRow..<actualEndRow]
-        newSeries.index = result.index
+        newSeries.index = if df.index.len == 0: @[] else: result.index
         result.columns[colName] = newSeries
 
     result.shape = (actualEndRow - startRow, actualEndCol - startCol)
@@ -742,7 +749,7 @@ proc slice*(df: DataFrame, colNames: seq[string]): DataFrame =
     ## Returns a new DataFrame with only the specified columns.
     result = DataFrame()
     result.columns = initOrderedTable[string, Series]()
-    result.index = df.index
+    result.index = if df.index.len == 0: @[] else: df.index
 
     for colName in colNames:
         if colName notin df.columns:
@@ -809,7 +816,8 @@ proc dropNa*(s: Series): Series =
     for i in 0..<s.len:
         if not s.data[i].isNa():
             validData.add(s.data[i])
-            validIndex.add(s.index[i])
+            if s.index.len > 0:
+                validIndex.add(s.index[i])
 
     Series(
         data: validData,
@@ -845,7 +853,8 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
 
         for i in validRows:
             cleanData.add(series.data[i])
-            cleanIndex.add(series.index[i])
+            if series.index.len > 0:
+                cleanIndex.add(series.index[i])
 
         result[name] = Series(
             data: cleanData,
@@ -856,7 +865,8 @@ proc dropNa*(df: DataFrame, how = "any"): DataFrame =
 
     var newIndex: seq[string] = @[]
     for i in validRows:
-        newIndex.add(df.index[i])
+        if df.index.len > 0:
+            newIndex.add(df.index[i])
     result.index = newIndex
     result.updateShape()
 
@@ -880,7 +890,8 @@ proc dropDuplicates*(df: DataFrame): DataFrame =
         var uniqueIndex: seq[string] = @[]
         for i in uniqueIndices:
             uniqueData.add(series.data[i])
-            uniqueIndex.add(series.index[i])
+            if series.index.len > 0:
+                uniqueIndex.add(series.index[i])
 
         result[name] = Series(
             data: uniqueData,
@@ -891,7 +902,8 @@ proc dropDuplicates*(df: DataFrame): DataFrame =
 
     var newIndex: seq[string] = @[]
     for i in uniqueIndices:
-        newIndex.add(df.index[i])
+        if df.index.len > 0:
+            newIndex.add(df.index[i])
     result.index = newIndex
     result.updateShape()
 
