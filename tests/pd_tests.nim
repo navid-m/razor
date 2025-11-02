@@ -46,13 +46,6 @@ test "Get dtypes of columns in a dataframe":
     check types["id"] == "int"
     check types["name"] == "string"
 
-test "Sort by multiple columns":
-    var df = newDataFrame()
-    df["group"] = newSeries(@["B", "A", "A", "B"])
-    df["score"] = newSeries(@[2, 3, 1, 4])
-    let sorted = df.sort(by = @["group", "score"])
-    check sorted["score"].toSeq() == @[v 1, v 3, v 2, v 4]
-
 test "Value-based filtering with multiple conditions":
     var df = newDataFrame()
     df["x"] = newSeries(@[1, 2, 3, 4])

@@ -266,19 +266,33 @@ proc concat*(dfl, dfr: DataFrame): DataFrame =
     return newDf
 
 
-proc sort*(df: DataFrame, by: string, ascending = true): DataFrame =
-    if by notin df.columns:
-        raise newException(KeyError, "Column not found: " & by)
+proc sort*(df: DataFrame, by: string | seq[string], ascending = true): DataFrame =
+    let sortColumns = when by is string: @[by] else: by
+    
+    for col in sortColumns:
+        if col notin df.columns:
+            raise newException(KeyError, "Column not found: " & col)
 
-    let sortSeries = df.columns[by]
+    if df.len == 0:
+        return df
+
     let indices = toSeq(0..<df.len)
     var sortedIndices = indices
 
     sortedIndices.sort do (a, b: int) -> int:
-        let cmp = if sortSeries.data[a] < sortSeries.data[b]: -1
-                            elif sortSeries.data[a] == sortSeries.data[b]: 0
-                            else: 1
-        if ascending: cmp else: -cmp
+        var cmpResult = 0
+        for col in sortColumns:
+            let sortSeries = df.columns[col]
+            if a >= sortSeries.data.len or b >= sortSeries.data.len:
+                continue
+            
+            let cmp = if sortSeries.data[a] < sortSeries.data[b]: -1
+                     elif sortSeries.data[a] == sortSeries.data[b]: 0
+                     else: 1
+            if cmp != 0:
+                cmpResult = if ascending: cmp else: -cmp
+                break
+        cmpResult
 
     result = newDataFrame()
     for name, series in df.columns:
