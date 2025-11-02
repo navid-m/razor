@@ -64,11 +64,15 @@ proc `+`*(a, b: Series): Series =
         raise newException(ValueError, "Series must have the same length for arithmetic operations")
 
     var resultData = newSeq[Value](a.data.len)
-    var resultIndex = newSeq[string](a.data.len)
+    var resultIndex: seq[string] = @[]
+    
+    if a.index.len == a.data.len:
+        resultIndex = a.index
+    elif b.index.len == a.data.len:
+        resultIndex = b.index
 
     for i in 0..<a.data.len:
         resultData[i] = a.data[i] + b.data[i]
-        resultIndex[i] = a.index[i]
 
     var resultDtype = a.dtype
     if a.dtype == dtInt and b.dtype == dtFloat:
@@ -107,11 +111,15 @@ proc `-`*(a, b: Series): Series =
         raise newException(ValueError, "Series must have the same length for arithmetic operations")
 
     var resultData = newSeq[Value](a.data.len)
-    var resultIndex = newSeq[string](a.data.len)
+    var resultIndex: seq[string] = @[]
+
+    if a.index.len == a.data.len:
+        resultIndex = a.index
+    elif b.index.len == a.data.len:
+        resultIndex = b.index
 
     for i in 0..<a.data.len:
         resultData[i] = a.data[i] - b.data[i]
-        resultIndex[i] = a.index[i]
 
     var resultDtype = a.dtype
     if a.dtype == dtInt and b.dtype == dtFloat:
@@ -134,11 +142,15 @@ proc `*`*(a, b: Series): Series =
         raise newException(ValueError, "Series must have the same length for arithmetic operations")
 
     var resultData = newSeq[Value](a.data.len)
-    var resultIndex = newSeq[string](a.data.len)
+    var resultIndex: seq[string] = @[]
+    
+    if a.index.len == a.data.len:
+        resultIndex = a.index
+    elif b.index.len == a.data.len:
+        resultIndex = b.index
 
     for i in 0..<a.data.len:
         resultData[i] = a.data[i] * b.data[i]
-        resultIndex[i] = a.index[i]
 
     var resultDtype = a.dtype
     if a.dtype == dtInt and b.dtype == dtFloat:
@@ -185,11 +197,15 @@ proc `/`*(a, b: Series): Series =
         raise newException(ValueError, "Series must have the same length for arithmetic operations")
 
     var resultData = newSeq[Value](a.data.len)
-    var resultIndex = newSeq[string](a.data.len)
+    var resultIndex: seq[string] = @[]
+    
+    if a.index.len == a.data.len:
+        resultIndex = a.index
+    elif b.index.len == a.data.len:
+        resultIndex = b.index
 
     for i in 0..<a.data.len:
         resultData[i] = a.data[i] / b.data[i]
-        resultIndex[i] = a.index[i]
 
     Series(
         data: resultData,
