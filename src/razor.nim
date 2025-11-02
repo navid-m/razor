@@ -10,11 +10,6 @@ import
     os,
     razor/[models, values, ops]
 
-proc buildIndex(len: int): seq[string] =
-    result = newSeq[string](len)
-    for i in 0..<len:
-        result[i] = $i
-
 proc newSeriesWithDataType*(
     data: seq[Value],
     name = "",
