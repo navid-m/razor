@@ -1,3 +1,5 @@
+{.push warnings:off.}
+
 import
     tables,
     sequtils,
@@ -10,6 +12,8 @@ import
     os,
     threadpool,
     razor/[models, values, ops]
+
+{.pop.}
 
 const
     ChunkSize* = 1000
