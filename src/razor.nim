@@ -156,8 +156,7 @@ proc min*(s: Series): Value =
 proc sort*(s: Series, ascending = true): Series =
     var sortedData = s.data
     var sortedIndex = s.index
-    let indices = toSeq(0..<s.len)
-    var sortedIndices = indices
+    var sortedIndices = toSeq(0..<s.len)
 
     sortedIndices.sort do (a, b: int) -> int:
         let cmp = if s.data[a] < s.data[b]: -1 elif s.data[a] == s.data[b]: 0 else: 1
