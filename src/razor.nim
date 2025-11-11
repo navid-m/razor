@@ -73,6 +73,46 @@ proc newSeriesWithDataType*(
         index: @[]
     )
 
+iterator parseCsvChunks(lines: seq[string], startIdx, endIdx: int, headers: seq[string], sep: string): CsvChunkResult {.inline.} =
+    var result = CsvChunkResult()
+    result.data = newSeq[seq[Value]](headers.len)
+    for i in 0..<headers.len:
+        result.data[i] = newSeqOfCap[Value](endIdx - startIdx + 1)
+    
+    result.startIdx = startIdx
+    result.endIdx = endIdx
+    
+    for i in startIdx..<endIdx:
+        if i >= lines.len or lines[i].len == 0: continue
+        
+        let values = lines[i].split(sep)
+        for j in 0..<min(values.len, headers.len):
+            let val = values[j].strip()
+            var parsedVal: Value
+            
+            if val.len == 0:
+                parsedVal = na()
+            elif val[0] in {'0'..'9', '-', '+'}:
+                try:
+                    if '.' in val:
+                        parsedVal = newValue(parseFloat(val))
+                    else:
+                        parsedVal = newValue(parseInt(val).int64)
+                except ValueError:
+                    parsedVal = newValue(val)
+            elif val.toLowerAscii() == "true":
+                parsedVal = newValue(true)
+            elif val.toLowerAscii() == "false":
+                parsedVal = newValue(false)
+            else:
+                parsedVal = newValue(val)
+            
+            result.data[j].add(parsedVal)
+        
+        yield result
+        for col in 0..<headers.len:
+            result.data[col].setLen(0)
+
 template newSeriesFromRaw*(T: typedesc, dt: DataType, conv: untyped) =
     proc newSeries*(data: seq[T], name = ""): Series =
         let len = data.len
@@ -671,39 +711,12 @@ proc readCsv*(filename: string, sep = ",", useThreads = true): DataFrame =
         for i in 0..<headers.len:
             allColumns[i] = newSeq[Value]()
         
-        var rowCount = 0
-        for i in 1..<lines.len:
-            if lines[i].len == 0: continue
-            
-            let values = lines[i].split(sep)
-            if values.len == 0: continue
-            
-            for j in 0..<min(values.len, headers.len):
-                let val = values[j].strip()
-                var parsedVal: Value
-                
-                if val.len == 0:
-                    parsedVal = na()
-                elif val[0] in {'0'..'9', '-', '+'}:
-                    try:
-                        if '.' in val:
-                            parsedVal = newValue(parseFloat(val))
-                        else:
-                            parsedVal = newValue(parseInt(val).int64)
-                    except ValueError:
-                        parsedVal = newValue(val)
-                elif val.toLowerAscii() == "true":
-                    parsedVal = newValue(true)
-                elif val.toLowerAscii() == "false":
-                    parsedVal = newValue(false)
-                else:
-                    parsedVal = newValue(val)
-                
-                allColumns[j].add(parsedVal)
-            rowCount.inc()
+        for chunk in parseCsvChunks(lines, 1, lines.len, headers, sep):
+            for colIdx in 0..<headers.len:
+                allColumns[colIdx].add(chunk.data[colIdx])
     
     for i, header in headers:
-        result[header] = newSeries(allColumns[i], header)
+        result[header] = newSeriesWithDataType(allColumns[i], header)
     
     if result.columns.len > 0:
         let firstCol = toSeq(result.columns.values)[0]
@@ -722,7 +735,9 @@ proc toCsv*(df: DataFrame, filename: string, sep = ",", index = false) =
     if index:
         content.add("index" & sep)
     content.add(headers.join(sep) & "\n")
-    for i in 0..<df.len:
+    
+    let rowCount = if df.columns.len > 0: df.columns[headers[0]].len else: 0
+    for i in 0..<rowCount:
         if index:
             let idxStr = if df.index.len == 0: $i else: df.index[i]
             content.add(idxStr & sep)
@@ -1340,7 +1355,8 @@ proc variance*(s: Series): Value =
             let diff = val.floatVal - meanVal
             sumSquaredDiffs += diff * diff
             count += 1
-        else: discard
+        else:
+            discard
 
     if count <= 1:
         raise newException(ValueError, "Need at least 2 numeric values for variance calculation")
